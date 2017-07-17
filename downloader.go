@@ -22,7 +22,7 @@ import (
 )
 
 const retryTimeSeed = 1 // The time (in minutes) to wait before the first retry of a failed download
-const sleepInterval = 10
+const sleepInterval = 8 // The average time (in hours) to wait in between attempts to download files
 
 // URLAndID is a struct for bundling the Routeview URL and Seqnum together into a single struct. This is the return value of the genRouteviewsURLs function
 type URLAndID struct {
@@ -86,6 +86,7 @@ var (
 	}, []string{"source"})
 )
 
+// setupPrometheus takes no arguments and sets up prometheus metrics for the package
 func setupPrometheus() {
 	http.Handle("/metrics", promhttp.Handler())
 	prometheus.MustRegister(LastSuccessTime)
@@ -94,6 +95,7 @@ func setupPrometheus() {
 	prometheus.MustRegister(RouteviewsURLErrorCount)
 }
 
+// The main function seeds the random number generator, starts prometheus in the background, takes the bucket flag from the command line, and kicks off the actual downloader loop
 func main() {
 	rand.Seed(time.Now().UTC().UnixNano())
 	setupPrometheus()
@@ -108,6 +110,7 @@ func main() {
 	loopOverURLsForever(*bucketName)
 }
 
+// loopOverURLsForever takes a bucketName and then tries to download the files over and over again until the end of time (waiting an average of 8 hours in between attempts)
 func loopOverURLsForever(bucketName string) {
 	lastDownloadedV4 := 0
 	lastDownloadedV6 := 0
@@ -127,6 +130,7 @@ func loopOverURLsForever(bucketName string) {
 	}
 }
 
+// downloadMaxmindFiles takes a slice of urls pointing to maxmind files, a timestamp that the user wants attached to the files, and the handle of the bucket they want the files stored in. It then downloads the files, stores them, and returns true on failure. Gaurenteed to to introduce duplicates.
 func downloadMaxmindFiles(urls []string, timestamp string, bkt *storage.BucketHandle) bool {
 	failure := false
 	for _, url := range urls {
@@ -140,6 +144,7 @@ func downloadMaxmindFiles(urls []string, timestamp string, bkt *storage.BucketHa
 
 }
 
+// downloadRouteviewsFiles takes a url pointing to a routeview generation log, a directory prefix that the user wants the files placed in, a pointer to the ID of the last successful download, and a handle to the bucket it wants the files stored in. It will download the files listed in the log file and is gaurenteed not to introduce duplicates
 func downloadRouteviewsFiles(logFileURL string, directory string, lastDownloaded *int, bkt *storage.BucketHandle) bool {
 	routeViewsURLsAndIDs, err := genRouteViewURLs(logFileURL, *lastDownloaded)
 	if err != nil {
@@ -161,6 +166,7 @@ func downloadRouteviewsFiles(logFileURL string, directory string, lastDownloaded
 
 }
 
+// genSleepTime generates a random time to sleep (in hours) that is on average, the time given by sleepInterval. It will also max out and cap the return value at 20 hours.
 func genSleepTime(sleepInterval float64) float64 {
 	sleepTime := rand.ExpFloat64() * sleepInterval
 	if sleepTime > 23 {
@@ -169,6 +175,7 @@ func genSleepTime(sleepInterval float64) float64 {
 	return sleepTime
 }
 
+// loadBucket takes a bucket name and safely loads it, returning either the handle to the bucket or an error
 func loadBucket(bucketName string) (*storage.BucketHandle, error) {
 	ctx := context.Background()
 
@@ -180,6 +187,7 @@ func loadBucket(bucketName string) (*storage.BucketHandle, error) {
 	return client.Bucket(bucketName), nil
 }
 
+// download takes a URL, a time to wait in between attempted downloads, a bucket handle where the download will be stored, a prefix to add to the downloaded files, and a number of characters to add onto the begining of the filename from the URL (in addition to the actual file name given by the url). It will download the file, retrying upon failure, or returning the error if the maximum number of retries has been reached.
 func download(url string, retTime int, bkt *storage.BucketHandle, prefix string, cutChars int) error {
 	// Get a handle on our object in GCS where we will store the file
 	filename := url[strings.LastIndex(url, "/")+1-cutChars:]
@@ -213,6 +221,7 @@ func download(url string, retTime int, bkt *storage.BucketHandle, prefix string,
 	return nil
 }
 
+// retryDownloadAfterError works in tandem with download to handle the retry logic of the function. Essentially, it waits the time given by retryTime (in minutes), and then retries the download with double the amount of wait time passed into the download function. If the download wait time is beyond 15 minutes, it will simply give up and return the error.
 func retryDownloadAfterError(url string, err error, retryTime int, bkt *storage.BucketHandle, prefix string, cutChars int) error {
 	if retryTime > 15 {
 		return err
@@ -221,6 +230,7 @@ func retryDownloadAfterError(url string, err error, retryTime int, bkt *storage.
 	return download(url, retryTime*2, bkt, prefix, cutChars)
 }
 
+// determineIfFileIsNew takes a bucket handle, a filename, and a search dir and determines if any of the files in the search dir are duplicates of the file given by filename. If there is a duplicate then the file is not new and it returns false. If there is not duplicate (or if we are unsure, just to be safe) we return true, indicating that the file is new and should be kept.
 func determineIfFileIsNew(bkt *storage.BucketHandle, fileName string, searchDir string) bool {
 	ctx := context.Background()
 	md5Hash, err := getHashOfGCSFile(bkt, fileName)
@@ -232,6 +242,7 @@ func determineIfFileIsNew(bkt *storage.BucketHandle, fileName string, searchDir 
 	return checkIfHashIsUniqueInList(md5Hash, objects, fileName)
 }
 
+// getHashOfGCSFile takes a bucket handle and a filename specefying a file in that bucket and returns the MD5 hash of that file, or an error if we cannot get the hash
 func getHashOfGCSFile(bkt *storage.BucketHandle, fileName string) ([]byte, error) {
 	ctx := context.Background()
 	obj := bkt.Object(fileName)
@@ -243,6 +254,7 @@ func getHashOfGCSFile(bkt *storage.BucketHandle, fileName string) ([]byte, error
 	return attrs.MD5, nil
 }
 
+// checkIfHashIsUniqueInList takes an MD5 hash, an ObjectIterator of file attributes, and a filename corresponding to the MD5 hash. It will return false if it finds another file in the ObjectIterator with a matching MD5 and a different filename. Otherwise, it will return true.
 func checkIfHashIsUniqueInList(md5Hash []byte, fileAttributes *storage.ObjectIterator, fileName string) bool {
 	if fileAttributes == nil {
 		DownloaderErrorCount.With(prometheus.Labels{"source": "Couldn't get list of other files in directory"}).Inc()
@@ -259,6 +271,7 @@ func checkIfHashIsUniqueInList(md5Hash []byte, fileAttributes *storage.ObjectIte
 	return true
 }
 
+// genRouteViewsURLs takes a URL pointing to a routeview log file, and an integer corresponding to the seqnum of the last successful file download. It returns a slice of URLAndID structs which contain the files that the user needs to download form the routeview webserver.
 func genRouteViewURLs(logFileURL string, lastDownloaded int) ([]URLAndID, error) {
 	var urlsAndIDs []URLAndID = nil
 
