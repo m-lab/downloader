@@ -21,13 +21,13 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
-const retryTimeSeed = 1
-const retryDelay = 1
+const retryTimeSeed = 1 // The time (in minutes) to wait before the first retry of a failed download
 const sleepInterval = 10
 
+// URLAndID is a struct for bundling the Routeview URL and Seqnum together into a single struct. This is the return value of the genRouteviewsURLs function
 type URLAndID struct {
-	URL string
-	ID  int
+	URL string // The URL pointing to the file we need to download
+	ID  int    // The seqnum of the file, as given in the routeview generation log file
 }
 
 var maxmindURLs []string = []string{
@@ -45,29 +45,41 @@ var maxmindURLs []string = []string{
 
 //These vars are the prometheus metrics
 var (
+	// Always set to the last time we had a successful download of ALL files
+	// Provides metrics:
+	//    downloader_Last_Successful_Time
+	// Example usage:
+	//    LastSuccessTime.Inc()
 	LastSuccessTime = prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "downloader_Last_Successful_Time",
-		Help: "The time that the downloads last completed successfully.",
+		Help: "The time that ALL the downloads last completed successfully.",
 	})
+
+	// Measures the number of downloads that have failed completely
+	// Provides metrics:
+	//    downloader_Download_Failed
+	// Example usage:
+	//    FailedDownloadCount.Inc()
 	FailedDownloadCount = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name: "downloader_Download_Failed",
 		Help: "Increments every time a download maxes out our number of retries.",
 	}, []string{"DownloadType"})
+
 	// Measures the number of downloader errors
 	// Provides metrics:
 	//    downloader_Error_Count
 	// Example usage:
-	//    metrics.AnnotationErrorCount.Inc()
+	//    DownloaderErrorCount.Inc()
 	DownloaderErrorCount = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name: "downloader_Error_Count",
 		Help: "The current number of unresolved errors encountered while attemting to download the latest maxmind and routeviews data.",
 	}, []string{"source"})
 
-	// Measures the number of downloader errors
+	// Measures the number of errors involved with getting the list of routeview files
 	// Provides metrics:
-	//    etl_annotator_Error_Count
+	//    downloader_Downloader_Routeviews_URL_Error_Count
 	// Example usage:
-	//    metrics.AnnotationErrorCount.Inc()
+	//    RouteviewsURLErrorCount.Inc()
 	RouteviewsURLErrorCount = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name: "downloader_Downloader_Routeviews_URL_Error_Count",
 		Help: "The number of erros that occured with retrieving the Routeviews URL list.",
@@ -84,13 +96,6 @@ func setupPrometheus() {
 
 func main() {
 	rand.Seed(time.Now().UTC().UnixNano())
-	genSleepTime(sleepInterval)
-	genSleepTime(sleepInterval)
-	genSleepTime(sleepInterval)
-	genSleepTime(sleepInterval)
-	genSleepTime(sleepInterval)
-	genSleepTime(sleepInterval)
-	genSleepTime(sleepInterval)
 	setupPrometheus()
 	go func() {
 		log.Fatal(http.ListenAndServe(":8080", nil))
@@ -115,38 +120,6 @@ func loopOverURLsForever(bucketName string) {
 		maxmindFailure := downloadMaxmindFiles(maxmindURLs, timestamp, bkt)
 		routeviewIPv4Failure := downloadRouteviewsFiles("http://data.caida.org/datasets/routing/routeviews-prefix2as/pfx2as-creation.log", "RouteViewIPv4/", &lastDownloadedV4, bkt)
 		routeviewIPv6Failure := downloadRouteviewsFiles("http://data.caida.org/datasets/routing/routeviews6-prefix2as/pfx2as-creation.log", "RouteViewIPv6/", &lastDownloadedV6, bkt)
-		/*routeViewsIPv4URLsAndIDs, err := genRouteViewURLs("http://data.caida.org/datasets/routing/routeviews-prefix2as/pfx2as-creation.log", lastDownloadedV4)
-		if err == nil {
-			log.Println(err)
-		}
-		routeViewsIPv6URLsAndIDs, err := genRouteViewURLs("http://data.caida.org/datasets/routing/routeviews6-prefix2as/pfx2as-creation.log", lastDownloadedV6)
-		if err != nil {
-			log.Println(err)
-		}
-		routeViewsDownloadFailure := false
-		for _, urlAndID := range routeViewsIPv4URLsAndIDs {
-			if err := download(urlAndID.URL, retryTimeSeed, bkt, "RouteViewIPv4/", 8); err != nil {
-				failure = true
-				routeViewsDownloadFailure = true
-				log.Println(err)
-				FailedDownloadCount.With(prometheus.Labels{"Download Type": "Routeviews IPv4"}).Inc()
-			}
-			if !routeViewsDownloadFailure {
-				lastDownloadedV4 = urlAndID.ID
-			}
-		}
-		routeViewsDownloadFailure = false
-		for _, urlAndID := range routeViewsIPv6URLsAndIDs {
-			if err := download(urlAndID.URL, retryTimeSeed, bkt, "RouteViewIPv6/", 8); err != nil {
-				failure = true
-				routeViewsDownloadFailure = true
-				log.Println(err)
-				FailedDownloadCount.With(prometheus.Labels{"Download Type": "Routeviews IPv6"}).Inc()
-			}
-			if !routeViewsDownloadFailure {
-				lastDownloadedV6 = urlAndID.ID
-			}
-		}*/
 		if !maxmindFailure && !routeviewIPv4Failure && !routeviewIPv6Failure {
 			LastSuccessTime.SetToCurrentTime()
 		}
@@ -169,7 +142,7 @@ func downloadMaxmindFiles(urls []string, timestamp string, bkt *storage.BucketHa
 
 func downloadRouteviewsFiles(logFileURL string, directory string, lastDownloaded *int, bkt *storage.BucketHandle) bool {
 	routeViewsURLsAndIDs, err := genRouteViewURLs(logFileURL, *lastDownloaded)
-	if err == nil {
+	if err != nil {
 		log.Println(err)
 		return true
 	}
