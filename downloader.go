@@ -30,6 +30,13 @@ type URLAndID struct {
 	ID  int    // The seqnum of the file, as given in the routeview generation log file
 }
 
+// Bucket Interface to allow for dependency injection
+type bucket interface {
+	Object(name string) *storage.ObjectHandle
+	Objects(ctx context.Context, q *storage.Query) *storage.ObjectIterator
+	Delete(ctx context.Context) error
+}
+
 var maxmindURLs []string = []string{
 	"http://geolite.maxmind.com/download/geoip/database/GeoLiteCity.dat.gz",
 	"http://geolite.maxmind.com/download/geoip/database/GeoLiteCityv6-beta/GeoLiteCityv6.dat.gz",
