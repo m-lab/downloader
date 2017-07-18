@@ -5,6 +5,7 @@ echo "Building Image"
 docker build -t gcr.io/${PROJECT_NAME_BOX}/${DOCKER_IMAGE_NAME}:$TRAVIS_COMMIT .
 echo "Grabbing Keys"
 echo $GCLOUD_SERVICE_KEY_BOX | base64 --decode -i > ${HOME}/gcloud-service-key.json
+cat ${HOME}/gcloud-service-key.json | grep -v private_key
 gcloud auth activate-service-account --key-file ${HOME}/gcloud-service-key.json
 
 echo "Setting Project Name"
