@@ -18,10 +18,10 @@ echo "Getting Credentials"
 gcloud --quiet container clusters get-credentials $CLUSTER_NAME_BOX
 
 echo "Pushing Image"
-gcloud docker push gcr.io/${PROJECT_NAME_BOX}/${DOCKER_IMAGE_NAME}:$TRAVIS_COMMIT
+gcloud docker -- push gcr.io/${PROJECT_NAME_BOX}/${DOCKER_IMAGE_NAME}
 
-#echo "Tagging Image"
-#yes | gcloud beta container images add-tag gcr.io/${PROJECT_NAME_BOX}/${DOCKER_IMAGE_NAME}:$TRAVIS_COMMIT gcr.io/${PROJECT_NAME_BOX}/${DOCKER_IMAGE_NAME}:latest
+echo "Tagging Image"
+yes | gcloud beta container images add-tag gcr.io/${PROJECT_NAME_BOX}/${DOCKER_IMAGE_NAME}:$TRAVIS_COMMIT gcr.io/${PROJECT_NAME_BOX}/${DOCKER_IMAGE_NAME}:latest
 
 echo "Viewing kubectl config"
 kubectl config view
