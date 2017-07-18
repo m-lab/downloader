@@ -1,7 +1,6 @@
 language: go
 
 go:
-  - 1.6
   - 1.8
 
 
@@ -38,6 +37,7 @@ before_deploy:
   - gcloud --quiet components update
   - gcloud --quiet components update
   - gcloud --quiet components update kubectl
+  - ls
 
 deploy:
 #########################################
