@@ -24,17 +24,14 @@ import (
 const retryTimeSeed = 1 // The time (in minutes) to wait before the first retry of a failed download
 const sleepInterval = 8 // The average time (in hours) to wait in between attempts to download files
 
+type objIter interface {
+	Next() (*storage.ObjectAttrs, error)
+}
+
 // URLAndID is a struct for bundling the Routeview URL and Seqnum together into a single struct. This is the return value of the genRouteviewsURLs function
 type URLAndID struct {
 	URL string // The URL pointing to the file we need to download
 	ID  int    // The seqnum of the file, as given in the routeview generation log file
-}
-
-// Bucket Interface to allow for dependency injection
-type bucket interface {
-	Object(name string) *storage.ObjectHandle
-	Objects(ctx context.Context, q *storage.Query) *storage.ObjectIterator
-	Delete(ctx context.Context) error
 }
 
 var maxmindURLs []string = []string{
@@ -262,7 +259,7 @@ func getHashOfGCSFile(bkt *storage.BucketHandle, fileName string) ([]byte, error
 }
 
 // checkIfHashIsUniqueInList takes an MD5 hash, an ObjectIterator of file attributes, and a filename corresponding to the MD5 hash. It will return false if it finds another file in the ObjectIterator with a matching MD5 and a different filename. Otherwise, it will return true.
-func checkIfHashIsUniqueInList(md5Hash []byte, fileAttributes *storage.ObjectIterator, fileName string) bool {
+func checkIfHashIsUniqueInList(md5Hash []byte, fileAttributes objIter, fileName string) bool {
 	if fileAttributes == nil {
 		DownloaderErrorCount.With(prometheus.Labels{"source": "Couldn't get list of other files in directory"}).Inc()
 		return true
@@ -278,7 +275,7 @@ func checkIfHashIsUniqueInList(md5Hash []byte, fileAttributes *storage.ObjectIte
 	return true
 }
 
-// genRouteViewsURLs takes a URL pointing to a routeview log file, and an integer corresponding to the seqnum of the last successful file download. It returns a slice of URLAndID structs which contain the files that the user needs to download form the routeview webserver.
+// genRouteViewsURLs takes a URL pointing to a routeview log file, and an integer corresponding to the seqnum of the last successful file download. It returns a slice of URLAndID structs which contain the files that the user needs to download from the routeview webserver.
 func genRouteViewURLs(logFileURL string, lastDownloaded int) ([]URLAndID, error) {
 	var urlsAndIDs []URLAndID = nil
 
