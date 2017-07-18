@@ -43,7 +43,7 @@ deploy:
 #########################################
 ## Sandbox
 - provider: script
-  script: ./deploy-sandbox.sh
+  script: $TRAVIS_BUILD_DIR/deploy-sandbox.sh
   skip_cleanup: true
   on:
     repo: m-lab/downloader
