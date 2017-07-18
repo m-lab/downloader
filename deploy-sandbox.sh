@@ -1,6 +1,7 @@
 #!/bin/bash
 echo "Starting Script"
 set -e
+set -x
 echo "Building Image"
 docker build -t gcr.io/${PROJECT_NAME_BOX}/${DOCKER_IMAGE_NAME}:$TRAVIS_COMMIT .
 echo "Grabbing Keys"
