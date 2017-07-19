@@ -29,7 +29,7 @@ kubectl config view
 kubectl config current-context
 
 echo "Generating Deployment Config"
-./travis/substitute_values.sh ./deployment/templates/ {{GITHUB_COMMIT}} $TRAVIS_COMMIT {{PROJECT_NAME}} ${PROJECT_NAME_BOX} {{BUCKET_NAME}} ${BUCKET_NAME_BOX}
+./travis/substitute_values.sh ./deployment/templates/ GITHUB_COMMIT $TRAVIS_COMMIT PROJECT_NAME ${PROJECT_NAME_BOX} BUCKET_NAME ${BUCKET_NAME_BOX}
 
 ls ./deployment/templates/
 cat ./deployment/templates/deploy-downloader.yaml
