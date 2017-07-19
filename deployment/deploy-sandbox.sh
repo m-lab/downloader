@@ -28,6 +28,13 @@ echo "Viewing kubectl config"
 kubectl config view
 kubectl config current-context
 
-echo "Setting Image"
-kubectl set image deployment/${KUBE_DEPLOYMENT_NAME} ${KUBE_DEPLOYMENT_CONTAINER_NAME}=gcr.io/${PROJECT_NAME_BOX}/${DOCKER_IMAGE_NAME}:$TRAVIS_COMMIT
+echo "Generating Deployment Config"
+./travis/substitute_values.sh ./deployment/templates/ {{GITHUB_COMMIT}} $TRAVIS_COMMIT {{PROJECT_NAME}} ${PROJECT_NAME_BOX} {{BUCKET_NAME}} ${BUCKET_NAME_BOX}
+
+echo "Applying Deployment"
+
+kubectl apply -f ./deployment/templates/deploy-downloader.yaml
+
+#echo "Setting Image"
+#kubectl set image deployment/${KUBE_DEPLOYMENT_NAME} ${KUBE_DEPLOYMENT_CONTAINER_NAME}=gcr.io/${PROJECT_NAME_BOX}/${DOCKER_IMAGE_NAME}:$TRAVIS_COMMIT
 
