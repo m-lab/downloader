@@ -86,7 +86,7 @@ func Test_getHashOfGCSFile(t *testing.T) {
 	}
 
 }*/
-
+/*
 func Test_checkIfHashIsUniqueInList(t *testing.T) {
 	tests := []struct {
 		md5      []byte
@@ -167,7 +167,7 @@ func Test_checkIfHashIsUniqueInList(t *testing.T) {
 		}
 	}
 
-}
+}*/
 
 func Test_genRouteViewURLs(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

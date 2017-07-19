@@ -16,10 +16,10 @@ type store interface {
 }
 
 type fileObject interface {
-	getWriter() io.Writer
-	getReader() (io.Reader, error)
+	getWriter() io.WriteCloser
+	getReader() (io.ReadCloser, error)
 	deleteFile() error
-	getAttr() (fileAttributes, error)
+	getAttrs() (fileAttributes, error)
 }
 
 type fileAttributes interface {
@@ -57,11 +57,11 @@ type fileObjectGCS struct {
 	ctx context.Context
 }
 
-func (file *fileObjectGCS) getWriter() io.Writer {
+func (file *fileObjectGCS) getWriter() io.WriteCloser {
 	return file.obj.NewWriter(file.ctx)
 }
 
-func (file *fileObjectGCS) getReader() (io.Reader, error) {
+func (file *fileObjectGCS) getReader() (io.ReadCloser, error) {
 	return file.obj.NewReader(file.ctx)
 }
 
@@ -69,7 +69,7 @@ func (file *fileObjectGCS) deleteFile() error {
 	return file.obj.Delete(file.ctx)
 }
 
-func (file *fileObjectGCS) getAttr() (fileAttributes, error) {
+func (file *fileObjectGCS) getAttrs() (fileAttributes, error) {
 	attr, err := file.obj.Attrs(file.ctx)
 	return &fileAttributesGCS{attr}, err
 }

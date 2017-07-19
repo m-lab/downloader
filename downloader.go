@@ -12,8 +12,6 @@ import (
 	"strings"
 	"time"
 
-	"google.golang.org/api/iterator"
-
 	"golang.org/x/net/context"
 
 	"cloud.google.com/go/storage"
@@ -147,7 +145,7 @@ func downloadMaxmindFiles(urls []string, timestamp string, fileStore store) bool
 }
 
 // downloadRouteviewsFiles takes a url pointing to a routeview generation log, a directory prefix that the user wants the files placed in, a pointer to the ID of the last successful download, and a handle to the bucket it wants the files stored in. It will download the files listed in the log file and is gaurenteed not to introduce duplicates
-func downloadRouteviewsFiles(logFileURL string, directory string, lastDownloaded *int, bkt *storage.BucketHandle) bool {
+func downloadRouteviewsFiles(logFileURL string, directory string, lastDownloaded *int, fileStore store) bool {
 	routeViewsURLsAndIDs, err := genRouteViewURLs(logFileURL, *lastDownloaded)
 	if err != nil {
 		log.Println(err)
@@ -155,7 +153,7 @@ func downloadRouteviewsFiles(logFileURL string, directory string, lastDownloaded
 	}
 	routeViewsDownloadFailure := false
 	for _, urlAndID := range routeViewsURLsAndIDs {
-		if err := download(urlAndID.URL, retryTimeSeed, bkt, directory, 8); err != nil {
+		if err := download(urlAndID.URL, retryTimeSeed, fileStore, directory, 8); err != nil {
 			routeViewsDownloadFailure = true
 			log.Println(err)
 			FailedDownloadCount.With(prometheus.Labels{"DownloadType": directory}).Inc()
@@ -190,31 +188,30 @@ func loadBucket(bucketName string) (*storage.BucketHandle, error) {
 }
 
 // download takes a URL, a time to wait in between attempted downloads, a bucket handle where the download will be stored, a prefix to add to the downloaded files, and a number of characters to add onto the begining of the filename from the URL (in addition to the actual file name given by the url). It will download the file, retrying upon failure, or returning the error if the maximum number of retries has been reached.
-func download(url string, retTime int, bkt *storage.BucketHandle, prefix string, cutChars int) error {
+func download(url string, retTime int, fileStore store, prefix string, cutChars int) error {
 	// Get a handle on our object in GCS where we will store the file
 	filename := url[strings.LastIndex(url, "/")+1-cutChars:]
-	ctx := context.Background()
-	obj := bkt.Object(prefix + filename)
-	w := obj.NewWriter(ctx)
+	obj := fileStore.getFile(prefix + filename)
+	w := obj.getWriter()
 
 	// Grab the file from the website
 	resp, err := http.Get(url)
 	if err != nil {
 		DownloaderErrorCount.With(prometheus.Labels{"source": "Web Get"}).Inc()
-		return retryDownloadAfterError(url, err, retTime, bkt, prefix, cutChars)
+		return retryDownloadAfterError(url, err, retTime, fileStore, prefix, cutChars)
 	}
 
 	// Move the file into GCS
 	if _, err = io.Copy(w, resp.Body); err != nil {
 		DownloaderErrorCount.With(prometheus.Labels{"source": "Copy Error"}).Inc()
-		return retryDownloadAfterError(url, err, retTime, bkt, prefix, cutChars)
+		return retryDownloadAfterError(url, err, retTime, fileStore, prefix, cutChars)
 	}
 	w.Close()
 
 	// Check to make sure we didn't just download a duplicate, and delete it if we did.
-	fileNew := determineIfFileIsNew(bkt, prefix+filename, prefix+filename[:8])
+	fileNew := determineIfFileIsNew(fileStore, prefix+filename, prefix+filename[:8])
 	if !fileNew {
-		err = obj.Delete(ctx)
+		err = obj.deleteFile()
 		if err != nil {
 			DownloaderErrorCount.With(prometheus.Labels{"source": "Duplication Deletion Error"}).Inc()
 			return err
@@ -224,47 +221,43 @@ func download(url string, retTime int, bkt *storage.BucketHandle, prefix string,
 }
 
 // retryDownloadAfterError works in tandem with download to handle the retry logic of the function. Essentially, it waits the time given by retryTime (in minutes), and then retries the download with double the amount of wait time passed into the download function. If the download wait time is beyond 15 minutes, it will simply give up and return the error.
-func retryDownloadAfterError(url string, err error, retryTime int, bkt *storage.BucketHandle, prefix string, cutChars int) error {
+func retryDownloadAfterError(url string, err error, retryTime int, fileStore store, prefix string, cutChars int) error {
 	if retryTime > 15 {
 		return err
 	}
 	time.Sleep(time.Duration(retryTime) * time.Minute)
-	return download(url, retryTime*2, bkt, prefix, cutChars)
+	return download(url, retryTime*2, fileStore, prefix, cutChars)
 }
 
 // determineIfFileIsNew takes a bucket handle, a filename, and a search dir and determines if any of the files in the search dir are duplicates of the file given by filename. If there is a duplicate then the file is not new and it returns false. If there is not duplicate (or if we are unsure, just to be safe) we return true, indicating that the file is new and should be kept.
-func determineIfFileIsNew(bkt *storage.BucketHandle, fileName string, searchDir string) bool {
-	ctx := context.Background()
-	md5Hash, err := getHashOfGCSFile(ctx, bkt.Object(fileName))
+func determineIfFileIsNew(fileStore store, fileName string, searchDir string) bool {
+	md5Hash, err := getHashOfGCSFile(fileStore.getFile(fileName))
 	if err != nil {
 		log.Println(err)
 		return true
 	}
-	objects := bkt.Objects(ctx, &storage.Query{"", searchDir, false})
+	objects := fileStore.getFiles(searchDir)
 	return checkIfHashIsUniqueInList(md5Hash, objects, fileName)
 }
 
 // getHashOfGCSFile takes a bucket handle and a filename specefying a file in that bucket and returns the MD5 hash of that file, or an error if we cannot get the hash
-func getHashOfGCSFile(ctx context.Context, obj *storage.ObjectHandle) ([]byte, error) {
-	attrs, err := obj.Attrs(ctx)
+func getHashOfGCSFile(obj fileObject) ([]byte, error) {
+	attrs, err := obj.getAttrs()
 	if err != nil {
 		DownloaderErrorCount.With(prometheus.Labels{"source": "Couldn't get GCS File Attributes for hash generation"}).Inc()
 		return nil, err
 	}
-	return attrs.MD5, nil
+	return attrs.getMD5(), nil
 }
 
 // checkIfHashIsUniqueInList takes an MD5 hash, an ObjectIterator of file attributes, and a filename corresponding to the MD5 hash. It will return false if it finds another file in the ObjectIterator with a matching MD5 and a different filename. Otherwise, it will return true.
-func checkIfHashIsUniqueInList(md5Hash []byte, fileAttributes objIter, fileName string) bool {
-	if fileAttributes == nil {
+func checkIfHashIsUniqueInList(md5Hash []byte, fileAttrsList []fileAttributes, fileName string) bool {
+	if fileAttrsList == nil {
 		DownloaderErrorCount.With(prometheus.Labels{"source": "Couldn't get list of other files in directory"}).Inc()
 		return true
 	}
-	for otherFile, err := fileAttributes.Next(); err != iterator.Done; otherFile, err = fileAttributes.Next() {
-		if err != nil {
-			DownloaderErrorCount.With(prometheus.Labels{"source": "Unkown Error in iterator in checkIfHashIsUniqueInList"}).Inc()
-		}
-		if bytes.Equal(otherFile.MD5, md5Hash) && otherFile.Name != fileName {
+	for _, otherFile := range fileAttrsList {
+		if bytes.Equal(otherFile.getMD5(), md5Hash) && otherFile.getName() != fileName {
 			return false
 		}
 	}
