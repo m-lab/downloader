@@ -44,3 +44,4 @@ items:
         schedulerName: default-scheduler
         securityContext: {}
         terminationGracePeriodSeconds: 30
+kind: List
