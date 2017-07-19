@@ -20,6 +20,7 @@ env:
     - GOOGLE_APPLICATION_CREDENTIALS=~/gcloud-service-key.json
     - PROJECT_NAME_BOX=mlab-sandbox
     - CLUSTER_NAME_BOX=downloader
+    - BUCKET_NAME_BOX=maxmind-feed-sandbox
     - PROJECT_NAME_STG=<YOUR_PROJECT_NAME>
     - CLUSTER_NAME_STG=<YOUR_CLUSTER_NAME>
     - PROJECT_NAME_PRD=<YOUR_PROJECT_NAME>
