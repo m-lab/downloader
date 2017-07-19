@@ -24,10 +24,6 @@ import (
 const retryTimeSeed = 1 // The time (in minutes) to wait before the first retry of a failed download
 const sleepInterval = 8 // The average time (in hours) to wait in between attempts to download files
 
-type objIter interface {
-	Next() (*storage.ObjectAttrs, error)
-}
-
 // URLAndID is a struct for bundling the Routeview URL and Seqnum together into a single struct. This is the return value of the genRouteviewsURLs function
 type URLAndID struct {
 	URL string // The URL pointing to the file we need to download
@@ -111,11 +107,12 @@ func main() {
 	if *bucketName == "" {
 		log.Fatal("NO BUCKET SPECIFIED!!!")
 	}
-	loopOverURLsForever(*bucketName)
+	ctx := context.Background()
+	loopOverURLsForever(*bucketName, ctx)
 }
 
 // loopOverURLsForever takes a bucketName and then tries to download the files over and over again until the end of time (waiting an average of 8 hours in between attempts)
-func loopOverURLsForever(bucketName string) {
+func loopOverURLsForever(bucketName string, ctx context.Context) {
 	lastDownloadedV4 := 0
 	lastDownloadedV6 := 0
 	timestamp := time.Now().Format("2006/01/02/15:04:05-")
@@ -124,9 +121,10 @@ func loopOverURLsForever(bucketName string) {
 		if err != nil {
 			continue
 		}
-		maxmindFailure := downloadMaxmindFiles(maxmindURLs, timestamp, bkt)
-		routeviewIPv4Failure := downloadRouteviewsFiles("http://data.caida.org/datasets/routing/routeviews-prefix2as/pfx2as-creation.log", "RouteViewIPv4/", &lastDownloadedV4, bkt)
-		routeviewIPv6Failure := downloadRouteviewsFiles("http://data.caida.org/datasets/routing/routeviews6-prefix2as/pfx2as-creation.log", "RouteViewIPv6/", &lastDownloadedV6, bkt)
+		fileStore := &storeGCS{bkt: bkt, ctx: ctx}
+		maxmindFailure := downloadMaxmindFiles(maxmindURLs, timestamp, fileStore)
+		routeviewIPv4Failure := downloadRouteviewsFiles("http://data.caida.org/datasets/routing/routeviews-prefix2as/pfx2as-creation.log", "RouteViewIPv4/", &lastDownloadedV4, fileStore)
+		routeviewIPv6Failure := downloadRouteviewsFiles("http://data.caida.org/datasets/routing/routeviews6-prefix2as/pfx2as-creation.log", "RouteViewIPv6/", &lastDownloadedV6, fileStore)
 		if !maxmindFailure && !routeviewIPv4Failure && !routeviewIPv6Failure {
 			LastSuccessTime.SetToCurrentTime()
 		}
@@ -135,10 +133,10 @@ func loopOverURLsForever(bucketName string) {
 }
 
 // downloadMaxmindFiles takes a slice of urls pointing to maxmind files, a timestamp that the user wants attached to the files, and the handle of the bucket they want the files stored in. It then downloads the files, stores them, and returns true on failure. Gaurenteed to to introduce duplicates.
-func downloadMaxmindFiles(urls []string, timestamp string, bkt *storage.BucketHandle) bool {
+func downloadMaxmindFiles(urls []string, timestamp string, fileStore store) bool {
 	failure := false
 	for _, url := range urls {
-		if err := download(url, retryTimeSeed, bkt, "Maxmind/"+timestamp, 0); err != nil {
+		if err := download(url, retryTimeSeed, fileStore, "Maxmind/"+timestamp, 0); err != nil {
 			failure = true
 			log.Println(err)
 			FailedDownloadCount.With(prometheus.Labels{"DownloadType": "Maxmind"}).Inc()
@@ -237,7 +235,7 @@ func retryDownloadAfterError(url string, err error, retryTime int, bkt *storage.
 // determineIfFileIsNew takes a bucket handle, a filename, and a search dir and determines if any of the files in the search dir are duplicates of the file given by filename. If there is a duplicate then the file is not new and it returns false. If there is not duplicate (or if we are unsure, just to be safe) we return true, indicating that the file is new and should be kept.
 func determineIfFileIsNew(bkt *storage.BucketHandle, fileName string, searchDir string) bool {
 	ctx := context.Background()
-	md5Hash, err := getHashOfGCSFile(bkt, fileName)
+	md5Hash, err := getHashOfGCSFile(ctx, bkt.Object(fileName))
 	if err != nil {
 		log.Println(err)
 		return true
@@ -247,9 +245,7 @@ func determineIfFileIsNew(bkt *storage.BucketHandle, fileName string, searchDir 
 }
 
 // getHashOfGCSFile takes a bucket handle and a filename specefying a file in that bucket and returns the MD5 hash of that file, or an error if we cannot get the hash
-func getHashOfGCSFile(bkt *storage.BucketHandle, fileName string) ([]byte, error) {
-	ctx := context.Background()
-	obj := bkt.Object(fileName)
+func getHashOfGCSFile(ctx context.Context, obj *storage.ObjectHandle) ([]byte, error) {
 	attrs, err := obj.Attrs(ctx)
 	if err != nil {
 		DownloaderErrorCount.With(prometheus.Labels{"source": "Couldn't get GCS File Attributes for hash generation"}).Inc()

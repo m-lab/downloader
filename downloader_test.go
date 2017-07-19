@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"math/rand"
 	"net/http"
@@ -9,9 +10,41 @@ import (
 	"strings"
 	"testing"
 
+	"golang.org/x/net/context"
+
 	"cloud.google.com/go/storage"
 	"google.golang.org/api/iterator"
 )
+
+type objIter interface {
+	Next() (*storage.ObjectAttrs, error)
+}
+
+type obj struct {
+	name string
+	md5  []byte
+}
+
+func (o obj) Attrs(ctx context.Context) (*storage.ObjectAttrs, error) {
+	if o.md5 == nil {
+		return nil, errors.New("Oops")
+	}
+	return &storage.ObjectAttrs{Name: o.name, MD5: o.md5}, nil
+}
+
+// Set up code to use stubs instead of the actual Gcloud bucket objects function
+type osSlice struct {
+	slice *[]*storage.ObjectAttrs
+}
+
+func (os osSlice) Next() (*storage.ObjectAttrs, error) {
+	if len(*os.slice) == 0 {
+		return nil, iterator.Done
+	}
+	temp := (*os.slice)[0]
+	*os.slice = (*os.slice)[1:]
+	return temp, nil
+}
 
 func Test_genSleepTime(t *testing.T) {
 	rand.Seed(0)
@@ -32,23 +65,27 @@ func Test_genSleepTime(t *testing.T) {
 
 }
 
+/*
 func Test_getHashOfGCSFile(t *testing.T) {
-
-}
-
-// Set up code to use stubs instead of the actual Gcloud bucket objects function
-type osSlice struct {
-	slice *[]*storage.ObjectAttrs
-}
-
-func (os osSlice) Next() (*storage.ObjectAttrs, error) {
-	if len(*os.slice) == 0 {
-		return nil, iterator.Done
+	tests := []obj{
+		{
+			md5:  []byte("Moo"),
+			name: "foimsd",
+		},
+		{
+			md5:  nil,
+			name: "GonnaError",
+		},
 	}
-	temp := (*os.slice)[0]
-	*os.slice = (*os.slice)[1:]
-	return temp, nil
-}
+	ctx := context.Background()
+	for _, test := range tests {
+		testRes, err := getHashOfGCSFile(ctx, test)
+		if (test.md5 != nil && (!reflect.DeepEqual(testRes, test.md5) || err != nil)) || (test.md5 == nil && (testRes != nil || err == nil)) {
+			t.Errorf("Expected %s got %s, %v for %+v", test.md5, testRes, err, test)
+		}
+	}
+
+}*/
 
 func Test_checkIfHashIsUniqueInList(t *testing.T) {
 	tests := []struct {
