@@ -27,7 +27,7 @@ items:
           run: downloader
       spec:
         containers:
-          env:
+        - env:
           - name: DOWNLOADER_BUCKET
             value: "{{BUCKET_NAME}}"
           image: gcr.io/mlab-sandbox/downloader:{{GITHUB_COMMIT}}
