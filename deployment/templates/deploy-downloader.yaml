@@ -9,7 +9,7 @@ items:
     generation: 2
     labels:
       run: downloader
-    name: downloader-{{PROJECT_NAME}}-{{GITHUB-COMMIT}}
+    name: downloader-{{PROJECT_NAME}}-{{GITHUB_COMMIT}}
   spec:
     replicas: 1
     selector:
