@@ -15,6 +15,30 @@ import (
 	"cloud.google.com/go/storage"
 )
 
+//// testStore implements the store interface for testing
+type testStore struct {
+	files map[string]obj
+}
+
+func (fsto testStore) getFile(name string) fileObject {
+	if file, ok := fsto.files[name]; ok {
+		return file
+	}
+	return &obj{name: name, md5: nil, data: objData{nil}}
+}
+
+func (fsto testStore) getFiles(prefix string) []fileAttributes {
+	var attrSlice []fileAttributes = nil
+	for key, object := range fsto.files {
+		if strings.HasPrefix(key, prefix) {
+			attrSlice = append(attrSlice, object)
+		}
+	}
+	return attrSlice
+
+}
+
+//// Obj struct implements both the attrs and the object interfaces for testing
 type obj struct {
 	name string
 	md5  []byte
@@ -41,6 +65,7 @@ func (data objData) Read(p []byte) (n int, err error) {
 }
 
 func (data objData) Close() error {
+	//	data.md5 = []byte("NEW FILE")
 	return nil
 }
 
@@ -52,7 +77,7 @@ func (o obj) getAttrs() (fileAttributes, error) {
 	if o.md5 != nil {
 		return o, nil
 	}
-	return nil, errors.New("nlgjsdlkn")
+	return nil, errors.New("Expected Error Output")
 }
 
 func (file obj) getName() string {
@@ -61,6 +86,8 @@ func (file obj) getName() string {
 func (file obj) getMD5() []byte {
 	return file.md5
 }
+
+//// End of stubs for testing
 
 func Test_genSleepTime(t *testing.T) {
 	rand.Seed(0)
@@ -76,6 +103,85 @@ func Test_genSleepTime(t *testing.T) {
 		testRes := genSleepTime(8)
 		if val != testRes {
 			t.Errorf("Expected %s, got %s.", val, testRes)
+		}
+	}
+
+}
+
+func Test_runFunctionWithRetry(t *testing.T) {
+	tests := []struct {
+		numError     int
+		retryTimeMin int
+		retryTimeMax int
+		res          err
+	}{}
+
+}
+
+func Test_determineIfFileIsNew(t *testing.T) {
+	tests := []struct {
+		fs        testStore
+		directory string
+		filename  string
+		res       bool
+	}{
+		{
+			fs: testStore{map[string]obj{
+				"search/unique":     obj{name: "search/unique", data: objData{nil}, md5: []byte("123")},
+				"search/thing":      obj{name: "search/thing", data: objData{nil}, md5: []byte("000")},
+				"search/stuff":      obj{name: "search/stuff", data: objData{nil}, md5: []byte("765")},
+				"otherDir/ignoreMe": obj{name: "otherDir/ignoreMe", data: objData{nil}, md5: []byte("123")},
+			}},
+			directory: "search/",
+			filename:  "search/unique",
+			res:       true,
+		},
+		{
+			fs: testStore{map[string]obj{
+				"search/unique":     obj{name: "search/unique", data: objData{nil}, md5: []byte("123")},
+				"search/thing":      obj{name: "search/thing", data: objData{nil}, md5: []byte("000")},
+				"search/stuff":      obj{name: "search/stuff", data: objData{nil}, md5: []byte("123")},
+				"otherDir/ignoreMe": obj{name: "otherDir/ignoreMe", data: objData{nil}, md5: []byte("765")},
+			}},
+			directory: "search/",
+			filename:  "search/unique",
+			res:       false,
+		},
+		{
+			fs: testStore{map[string]obj{
+				"search/unique":     obj{name: "search/unique", data: objData{nil}, md5: []byte("123")},
+				"search/thing":      obj{name: "search/thing", data: objData{nil}, md5: []byte("000")},
+				"search/stuff":      obj{name: "search/stuff", data: objData{nil}, md5: []byte("765")},
+				"otherDir/ignoreMe": obj{name: "otherDir/ignoreMe", data: objData{nil}, md5: []byte("123")},
+			}},
+			directory: "search/",
+			filename:  "otherDir/ignoreMe",
+			res:       false,
+		},
+		{
+			fs: testStore{map[string]obj{
+				"search/unique":     obj{name: "search/unique", data: objData{nil}, md5: nil},
+				"search/thing":      obj{name: "search/thing", data: objData{nil}, md5: []byte("000")},
+				"search/stuff":      obj{name: "search/stuff", data: objData{nil}, md5: []byte("765")},
+				"otherDir/ignoreMe": obj{name: "otherDir/ignoreMe", data: objData{nil}, md5: []byte("123")},
+			}},
+			directory: "search/",
+			filename:  "search/unique",
+			res:       true,
+		},
+		{
+			fs: testStore{map[string]obj{
+				"otherDir/ignoreMe": obj{name: "otherDir/ignoreMe", data: objData{nil}, md5: []byte("123")},
+			}},
+			directory: "search/",
+			filename:  "otherDir/ignoreMe",
+			res:       true,
+		},
+	}
+	for _, test := range tests {
+		res := determineIfFileIsNew(test.fs, test.filename, test.directory)
+		if res != test.res {
+			t.Errorf("Expected %t, got %t for %+v.", test.res, res, test)
 		}
 	}
 

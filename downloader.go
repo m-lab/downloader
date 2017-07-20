@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"errors"
 	"flag"
 	"io"
 	"log"
@@ -21,11 +22,19 @@ import (
 
 const retryTimeSeed = 1 // The time (in minutes) to wait before the first retry of a failed download
 const sleepInterval = 8 // The average time (in hours) to wait in between attempts to download files
+const maxTime = 15
 
 // URLAndID is a struct for bundling the Routeview URL and Seqnum together into a single struct. This is the return value of the genRouteviewsURLs function
 type URLAndID struct {
 	URL string // The URL pointing to the file we need to download
 	ID  int    // The seqnum of the file, as given in the routeview generation log file
+}
+
+type downloadConfig struct {
+	url       string
+	fileStore store
+	prefix    string
+	backChars int
 }
 
 var maxmindURLs []string = []string{
@@ -134,7 +143,8 @@ func loopOverURLsForever(bucketName string, ctx context.Context) {
 func downloadMaxmindFiles(urls []string, timestamp string, fileStore store) bool {
 	failure := false
 	for _, url := range urls {
-		if err := download(url, retryTimeSeed, fileStore, "Maxmind/"+timestamp, 0); err != nil {
+		dc := downloadConfig{url: url, fileStore: fileStore, prefix: "Maxmind/" + timestamp, backChars: 0}
+		if err := runFunctionWithRetry(download, dc, retryTimeSeed, maxTime); err != nil {
 			failure = true
 			log.Println(err)
 			FailedDownloadCount.With(prometheus.Labels{"DownloadType": "Maxmind"}).Inc()
@@ -153,7 +163,8 @@ func downloadRouteviewsFiles(logFileURL string, directory string, lastDownloaded
 	}
 	routeViewsDownloadFailure := false
 	for _, urlAndID := range routeViewsURLsAndIDs {
-		if err := download(urlAndID.URL, retryTimeSeed, fileStore, directory, 8); err != nil {
+		dc := downloadConfig{url: urlAndID.URL, fileStore: fileStore, prefix: directory, backChars: 8}
+		if err := runFunctionWithRetry(download, dc, retryTimeSeed, maxTime); err != nil {
 			routeViewsDownloadFailure = true
 			log.Println(err)
 			FailedDownloadCount.With(prometheus.Labels{"DownloadType": directory}).Inc()
@@ -188,45 +199,53 @@ func loadBucket(bucketName string) (*storage.BucketHandle, error) {
 }
 
 // download takes a URL, a time to wait in between attempted downloads, a bucket handle where the download will be stored, a prefix to add to the downloaded files, and a number of characters to add onto the begining of the filename from the URL (in addition to the actual file name given by the url). It will download the file, retrying upon failure, or returning the error if the maximum number of retries has been reached.
-func download(url string, retTime int, fileStore store, prefix string, cutChars int) error {
+func download(config interface{}) (error, bool) {
+	dc, ok := config.(downloadConfig)
+	if !ok {
+		return errors.New("WRONG TYPE!!"), true
+	}
 	// Get a handle on our object in GCS where we will store the file
-	filename := url[strings.LastIndex(url, "/")+1-cutChars:]
-	obj := fileStore.getFile(prefix + filename)
+	filename := dc.url[strings.LastIndex(dc.url, "/")+1-dc.backChars:]
+	obj := dc.fileStore.getFile(dc.prefix + filename)
 	w := obj.getWriter()
 
 	// Grab the file from the website
-	resp, err := http.Get(url)
+	resp, err := http.Get(dc.url)
 	if err != nil {
 		DownloaderErrorCount.With(prometheus.Labels{"source": "Web Get"}).Inc()
-		return retryDownloadAfterError(url, err, retTime, fileStore, prefix, cutChars)
+		return err, false
 	}
 
 	// Move the file into GCS
 	if _, err = io.Copy(w, resp.Body); err != nil {
 		DownloaderErrorCount.With(prometheus.Labels{"source": "Copy Error"}).Inc()
-		return retryDownloadAfterError(url, err, retTime, fileStore, prefix, cutChars)
+		return err, false
 	}
 	w.Close()
 
 	// Check to make sure we didn't just download a duplicate, and delete it if we did.
-	fileNew := determineIfFileIsNew(fileStore, prefix+filename, prefix+filename[:8])
+	fileNew := determineIfFileIsNew(dc.fileStore, dc.prefix+filename, dc.prefix+filename[:8])
 	if !fileNew {
 		err = obj.deleteFile()
 		if err != nil {
 			DownloaderErrorCount.With(prometheus.Labels{"source": "Duplication Deletion Error"}).Inc()
-			return err
+			return err, true
 		}
 	}
-	return nil
+	return nil, false
 }
 
 // retryDownloadAfterError works in tandem with download to handle the retry logic of the function. Essentially, it waits the time given by retryTime (in minutes), and then retries the download with double the amount of wait time passed into the download function. If the download wait time is beyond 15 minutes, it will simply give up and return the error.
-func retryDownloadAfterError(url string, err error, retryTime int, fileStore store, prefix string, cutChars int) error {
-	if retryTime > 15 {
-		return err
+func runFunctionWithRetry(function func(interface{}) (error, bool), config interface{}, retryTimeMin int, retryTimeMax int) error {
+	retryTime := retryTimeMin
+	for err, forceIgnore := download(config); !forceIgnore && err != nil; err, forceIgnore = function(config) {
+		if retryTime > retryTimeMax {
+			return err
+		}
+		time.Sleep(time.Duration(retryTime) * time.Minute)
+		retryTime = retryTime * 2
 	}
-	time.Sleep(time.Duration(retryTime) * time.Minute)
-	return download(url, retryTime*2, fileStore, prefix, cutChars)
+	return nil
 }
 
 // determineIfFileIsNew takes a bucket handle, a filename, and a search dir and determines if any of the files in the search dir are duplicates of the file given by filename. If there is a duplicate then the file is not new and it returns false. If there is not duplicate (or if we are unsure, just to be safe) we return true, indicating that the file is new and should be kept.
