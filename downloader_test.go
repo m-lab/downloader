@@ -1,8 +1,10 @@
 package main
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
+	"io"
 	"math/rand"
 	"net/http"
 	"net/http/httptest"
@@ -10,40 +12,54 @@ import (
 	"strings"
 	"testing"
 
-	"golang.org/x/net/context"
-
 	"cloud.google.com/go/storage"
-	"google.golang.org/api/iterator"
 )
-
-type objIter interface {
-	Next() (*storage.ObjectAttrs, error)
-}
 
 type obj struct {
 	name string
 	md5  []byte
+	data objData
+}
+type objData struct {
+	data *bytes.Buffer
 }
 
-func (o obj) Attrs(ctx context.Context) (*storage.ObjectAttrs, error) {
-	if o.md5 == nil {
-		return nil, errors.New("Oops")
+func (file obj) getWriter() io.WriteCloser {
+	return file.data
+}
+
+func (file obj) getReader() (io.ReadCloser, error) {
+	return file.data, nil
+}
+
+func (data objData) Write(p []byte) (n int, err error) {
+	return data.Write(p)
+}
+
+func (data objData) Read(p []byte) (n int, err error) {
+	return data.Read(p)
+}
+
+func (data objData) Close() error {
+	return nil
+}
+
+func (file obj) deleteFile() error {
+	return nil
+}
+
+func (o obj) getAttrs() (fileAttributes, error) {
+	if o.md5 != nil {
+		return o, nil
 	}
-	return &storage.ObjectAttrs{Name: o.name, MD5: o.md5}, nil
+	return nil, errors.New("nlgjsdlkn")
 }
 
-// Set up code to use stubs instead of the actual Gcloud bucket objects function
-type osSlice struct {
-	slice *[]*storage.ObjectAttrs
+func (file obj) getName() string {
+	return file.name
 }
-
-func (os osSlice) Next() (*storage.ObjectAttrs, error) {
-	if len(*os.slice) == 0 {
-		return nil, iterator.Done
-	}
-	temp := (*os.slice)[0]
-	*os.slice = (*os.slice)[1:]
-	return temp, nil
+func (file obj) getMD5() []byte {
+	return file.md5
 }
 
 func Test_genSleepTime(t *testing.T) {
@@ -65,97 +81,97 @@ func Test_genSleepTime(t *testing.T) {
 
 }
 
-/*
 func Test_getHashOfGCSFile(t *testing.T) {
 	tests := []obj{
 		{
 			md5:  []byte("Moo"),
 			name: "foimsd",
+			data: objData{bytes.NewBuffer(nil)},
 		},
 		{
 			md5:  nil,
 			name: "GonnaError",
+			data: objData{bytes.NewBuffer(nil)},
 		},
 	}
-	ctx := context.Background()
 	for _, test := range tests {
-		testRes, err := getHashOfGCSFile(ctx, test)
+		testRes, err := getHashOfGCSFile(test)
 		if (test.md5 != nil && (!reflect.DeepEqual(testRes, test.md5) || err != nil)) || (test.md5 == nil && (testRes != nil || err == nil)) {
 			t.Errorf("Expected %s got %s, %v for %+v", test.md5, testRes, err, test)
 		}
 	}
 
-}*/
-/*
+}
+
 func Test_checkIfHashIsUniqueInList(t *testing.T) {
 	tests := []struct {
 		md5      []byte
-		iter     osSlice
+		iter     []fileAttributes
 		filename string
 		res      bool
 	}{
 		{
 			md5: []byte("cow"),
-			iter: osSlice{&[]*storage.ObjectAttrs{
-				&storage.ObjectAttrs{Name: "Dinkleberg", MD5: []byte("Dinkleberg")},
-			}},
+			iter: []fileAttributes{
+				&fileAttributesGCS{&storage.ObjectAttrs{Name: "Dinkleberg", MD5: []byte("Dinkleberg")}},
+			},
 			filename: "Unit testing1",
 			res:      true,
 		},
 		{
 			md5:      []byte("cow"),
-			iter:     osSlice{&[]*storage.ObjectAttrs{}},
+			iter:     []fileAttributes{},
 			filename: "Unit testing2",
 			res:      true,
 		},
 		{
 			md5: []byte("cow"),
-			iter: osSlice{&[]*storage.ObjectAttrs{
-				&storage.ObjectAttrs{Name: "Unit testing3", MD5: []byte("cow")},
-			}},
+			iter: []fileAttributes{
+				&fileAttributesGCS{&storage.ObjectAttrs{Name: "Unit testing3", MD5: []byte("cow")}},
+			},
 			filename: "Unit testing3",
 			res:      true,
 		},
 		{
 			md5: []byte("cow"),
-			iter: osSlice{&[]*storage.ObjectAttrs{
-				&storage.ObjectAttrs{Name: "Dinkleberg", MD5: []byte("cow")},
-			}},
+			iter: []fileAttributes{
+				&fileAttributesGCS{&storage.ObjectAttrs{Name: "Dinkleberg", MD5: []byte("cow")}},
+			},
 			filename: "Unit testing4",
 			res:      false,
 		},
 		{
 			md5: []byte("cow"),
-			iter: osSlice{&[]*storage.ObjectAttrs{
-				&storage.ObjectAttrs{Name: "Dinkleberg", MD5: []byte("Dinkleberg")},
-				&storage.ObjectAttrs{Name: "Unit testing5", MD5: []byte("cow")},
-			}},
+			iter: []fileAttributes{
+				&fileAttributesGCS{&storage.ObjectAttrs{Name: "Dinkleberg", MD5: []byte("Dinkleberg")}},
+				&fileAttributesGCS{&storage.ObjectAttrs{Name: "Unit testing5", MD5: []byte("cow")}},
+			},
 			filename: "Unit testing5",
 			res:      true,
 		},
 		{
 			md5: []byte("cow"),
-			iter: osSlice{&[]*storage.ObjectAttrs{
-				&storage.ObjectAttrs{Name: "Dinkleberg", MD5: []byte("Dinkleberg")},
-				&storage.ObjectAttrs{Name: "Unit te5", MD5: []byte("cw")},
-				&storage.ObjectAttrs{Name: "Dieberg", MD5: []byte("Dinrg")},
-				&storage.ObjectAttrs{Name: "Unit test", MD5: []byte("ow")},
-				&storage.ObjectAttrs{Name: "Dinkg", MD5: []byte("Din")},
-				&storage.ObjectAttrs{Name: "Ung5", MD5: []byte("c")},
-			}},
+			iter: []fileAttributes{
+				&fileAttributesGCS{&storage.ObjectAttrs{Name: "Dinkleberg", MD5: []byte("Dinkleberg")}},
+				&fileAttributesGCS{&storage.ObjectAttrs{Name: "Unit te5", MD5: []byte("cw")}},
+				&fileAttributesGCS{&storage.ObjectAttrs{Name: "Dieberg", MD5: []byte("Dinrg")}},
+				&fileAttributesGCS{&storage.ObjectAttrs{Name: "Unit test", MD5: []byte("ow")}},
+				&fileAttributesGCS{&storage.ObjectAttrs{Name: "Dinkg", MD5: []byte("Din")}},
+				&fileAttributesGCS{&storage.ObjectAttrs{Name: "Ung5", MD5: []byte("c")}},
+			},
 			filename: "Unit testing6",
 			res:      true,
 		},
 		{
 			md5: []byte("cow"),
-			iter: osSlice{&[]*storage.ObjectAttrs{
-				&storage.ObjectAttrs{Name: "Dinkleberg", MD5: []byte("Dinkleberg")},
-				&storage.ObjectAttrs{Name: "Unit te5", MD5: []byte("cow")},
-				&storage.ObjectAttrs{Name: "Dieberg", MD5: []byte("Dinrg")},
-				&storage.ObjectAttrs{Name: "Unit test", MD5: []byte("ow")},
-				&storage.ObjectAttrs{Name: "Dinkg", MD5: []byte("Din")},
-				&storage.ObjectAttrs{Name: "Ung5", MD5: []byte("c")},
-			}},
+			iter: []fileAttributes{
+				&fileAttributesGCS{&storage.ObjectAttrs{Name: "Dinkleberg", MD5: []byte("Dinkleberg")}},
+				&fileAttributesGCS{&storage.ObjectAttrs{Name: "Unit te5", MD5: []byte("cow")}},
+				&fileAttributesGCS{&storage.ObjectAttrs{Name: "Dieberg", MD5: []byte("Dinrg")}},
+				&fileAttributesGCS{&storage.ObjectAttrs{Name: "Unit test", MD5: []byte("ow")}},
+				&fileAttributesGCS{&storage.ObjectAttrs{Name: "Dinkg", MD5: []byte("Din")}},
+				&fileAttributesGCS{&storage.ObjectAttrs{Name: "Ung5", MD5: []byte("c")}},
+			},
 			filename: "Unit testing7",
 			res:      false,
 		},
@@ -167,7 +183,7 @@ func Test_checkIfHashIsUniqueInList(t *testing.T) {
 		}
 	}
 
-}*/
+}
 
 func Test_genRouteViewURLs(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
