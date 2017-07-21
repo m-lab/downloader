@@ -11,6 +11,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"cloud.google.com/go/storage"
 )
@@ -24,7 +25,7 @@ func (fsto testStore) getFile(name string) fileObject {
 	if file, ok := fsto.files[name]; ok {
 		return file
 	}
-	return &obj{name: name, md5: nil, data: objData{nil}}
+	return &obj{name: name, md5: nil, data: nil}
 }
 
 func (fsto testStore) getFiles(prefix string) []fileAttributes {
@@ -42,30 +43,29 @@ func (fsto testStore) getFiles(prefix string) []fileAttributes {
 type obj struct {
 	name string
 	md5  []byte
-	data objData
-}
-type objData struct {
 	data *bytes.Buffer
+	fsto *testStore
 }
 
 func (file obj) getWriter() io.WriteCloser {
-	return file.data
+	return file
 }
 
 func (file obj) getReader() (io.ReadCloser, error) {
-	return file.data, nil
+	return file, nil
 }
 
-func (data objData) Write(p []byte) (n int, err error) {
-	return data.Write(p)
+func (file obj) Write(p []byte) (n int, err error) {
+	return file.data.Write(p)
 }
 
-func (data objData) Read(p []byte) (n int, err error) {
-	return data.Read(p)
+func (file obj) Read(p []byte) (n int, err error) {
+	return file.data.Read(p)
 }
 
-func (data objData) Close() error {
-	//	data.md5 = []byte("NEW FILE")
+func (file obj) Close() error {
+	file.md5 = []byte("NEW FILE")
+	file.fsto.files[file.name] = file
 	return nil
 }
 
@@ -108,13 +108,97 @@ func Test_genSleepTime(t *testing.T) {
 
 }
 
+/*url       string
+fileStore store
+prefix    string
+backChars int*/
+
+func Test_download(t *testing.T) {
+	tests := []struct {
+		dc      downloadConfig
+		resBool bool
+		resErr  error
+	}{
+		{
+			dc: downloadConfig{
+				url:       "Fill me",
+				fileStore: testStore{map[string]obj{}},
+				prefix:    "pre/",
+				backChars: 0,
+			},
+			resBool: true,
+			resErr:  errors.New("WRONG TYPE"),
+		},
+	}
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, "Stuff")
+	}))
+	if err, force := download(nil); err == nil || force != true {
+		t.Errorf("FUNCTION DID NOT REJECT INVALID INTERFACE!!!")
+	}
+	for _, test := range tests {
+		test.dc.url = ts.URL
+	}
+
+}
+
+type retryTest struct {
+	force    bool
+	numError int
+}
+
 func Test_runFunctionWithRetry(t *testing.T) {
 	tests := []struct {
-		numError     int
-		retryTimeMin int
-		retryTimeMax int
-		res          err
-	}{}
+		data         *retryTest
+		retryTimeMin time.Duration
+		retryTimeMax time.Duration
+		res          error
+	}{
+		{
+			data:         &retryTest{force: false, numError: 0},
+			retryTimeMin: 0,
+			retryTimeMax: 0,
+			res:          nil,
+		},
+		{
+			data:         &retryTest{force: false, numError: 1},
+			retryTimeMin: 1,
+			retryTimeMax: 0,
+			res:          errors.New("runFunction Error 1"),
+		},
+		{
+			data:         &retryTest{force: false, numError: 100},
+			retryTimeMin: 1 * time.Nanosecond,
+			retryTimeMax: 50 * time.Nanosecond,
+			res:          errors.New("runFunction Error 2"),
+		},
+		{
+			data:         &retryTest{force: false, numError: 10},
+			retryTimeMin: 1 * time.Nanosecond,
+			retryTimeMax: 5000 * time.Nanosecond,
+			res:          nil,
+		},
+		{
+			data:         &retryTest{force: true, numError: 10},
+			retryTimeMin: 1 * time.Nanosecond,
+			retryTimeMax: 5000 * time.Nanosecond,
+			res:          errors.New("runFunction Error 3"),
+		},
+	}
+	f := func(i interface{}) (error, bool) {
+		rt := i.(*retryTest)
+		if rt.numError == 0 {
+			return nil, rt.force
+		}
+		rt.numError--
+		return errors.New("runFunction Error"), rt.force
+	}
+	for _, test := range tests {
+		res := runFunctionWithRetry(f, test.data, test.retryTimeMin, test.retryTimeMax)
+		if (res != nil && test.res == nil) || (res == nil && test.res != nil) {
+			t.Errorf("Expected %s, got %s", test.res, res)
+		}
+	}
 
 }
 
@@ -127,10 +211,10 @@ func Test_determineIfFileIsNew(t *testing.T) {
 	}{
 		{
 			fs: testStore{map[string]obj{
-				"search/unique":     obj{name: "search/unique", data: objData{nil}, md5: []byte("123")},
-				"search/thing":      obj{name: "search/thing", data: objData{nil}, md5: []byte("000")},
-				"search/stuff":      obj{name: "search/stuff", data: objData{nil}, md5: []byte("765")},
-				"otherDir/ignoreMe": obj{name: "otherDir/ignoreMe", data: objData{nil}, md5: []byte("123")},
+				"search/unique":     obj{name: "search/unique", data: nil, md5: []byte("123")},
+				"search/thing":      obj{name: "search/thing", data: nil, md5: []byte("000")},
+				"search/stuff":      obj{name: "search/stuff", data: nil, md5: []byte("765")},
+				"otherDir/ignoreMe": obj{name: "otherDir/ignoreMe", data: nil, md5: []byte("123")},
 			}},
 			directory: "search/",
 			filename:  "search/unique",
@@ -138,10 +222,10 @@ func Test_determineIfFileIsNew(t *testing.T) {
 		},
 		{
 			fs: testStore{map[string]obj{
-				"search/unique":     obj{name: "search/unique", data: objData{nil}, md5: []byte("123")},
-				"search/thing":      obj{name: "search/thing", data: objData{nil}, md5: []byte("000")},
-				"search/stuff":      obj{name: "search/stuff", data: objData{nil}, md5: []byte("123")},
-				"otherDir/ignoreMe": obj{name: "otherDir/ignoreMe", data: objData{nil}, md5: []byte("765")},
+				"search/unique":     obj{name: "search/unique", data: nil, md5: []byte("123")},
+				"search/thing":      obj{name: "search/thing", data: nil, md5: []byte("000")},
+				"search/stuff":      obj{name: "search/stuff", data: nil, md5: []byte("123")},
+				"otherDir/ignoreMe": obj{name: "otherDir/ignoreMe", data: nil, md5: []byte("765")},
 			}},
 			directory: "search/",
 			filename:  "search/unique",
@@ -149,10 +233,10 @@ func Test_determineIfFileIsNew(t *testing.T) {
 		},
 		{
 			fs: testStore{map[string]obj{
-				"search/unique":     obj{name: "search/unique", data: objData{nil}, md5: []byte("123")},
-				"search/thing":      obj{name: "search/thing", data: objData{nil}, md5: []byte("000")},
-				"search/stuff":      obj{name: "search/stuff", data: objData{nil}, md5: []byte("765")},
-				"otherDir/ignoreMe": obj{name: "otherDir/ignoreMe", data: objData{nil}, md5: []byte("123")},
+				"search/unique":     obj{name: "search/unique", data: nil, md5: []byte("123")},
+				"search/thing":      obj{name: "search/thing", data: nil, md5: []byte("000")},
+				"search/stuff":      obj{name: "search/stuff", data: nil, md5: []byte("765")},
+				"otherDir/ignoreMe": obj{name: "otherDir/ignoreMe", data: nil, md5: []byte("123")},
 			}},
 			directory: "search/",
 			filename:  "otherDir/ignoreMe",
@@ -160,10 +244,10 @@ func Test_determineIfFileIsNew(t *testing.T) {
 		},
 		{
 			fs: testStore{map[string]obj{
-				"search/unique":     obj{name: "search/unique", data: objData{nil}, md5: nil},
-				"search/thing":      obj{name: "search/thing", data: objData{nil}, md5: []byte("000")},
-				"search/stuff":      obj{name: "search/stuff", data: objData{nil}, md5: []byte("765")},
-				"otherDir/ignoreMe": obj{name: "otherDir/ignoreMe", data: objData{nil}, md5: []byte("123")},
+				"search/unique":     obj{name: "search/unique", data: nil, md5: nil},
+				"search/thing":      obj{name: "search/thing", data: nil, md5: []byte("000")},
+				"search/stuff":      obj{name: "search/stuff", data: nil, md5: []byte("765")},
+				"otherDir/ignoreMe": obj{name: "otherDir/ignoreMe", data: nil, md5: []byte("123")},
 			}},
 			directory: "search/",
 			filename:  "search/unique",
@@ -171,7 +255,7 @@ func Test_determineIfFileIsNew(t *testing.T) {
 		},
 		{
 			fs: testStore{map[string]obj{
-				"otherDir/ignoreMe": obj{name: "otherDir/ignoreMe", data: objData{nil}, md5: []byte("123")},
+				"otherDir/ignoreMe": obj{name: "otherDir/ignoreMe", data: nil, md5: []byte("123")},
 			}},
 			directory: "search/",
 			filename:  "otherDir/ignoreMe",
@@ -187,21 +271,21 @@ func Test_determineIfFileIsNew(t *testing.T) {
 
 }
 
-func Test_getHashOfGCSFile(t *testing.T) {
+func Test_getHashOfFile(t *testing.T) {
 	tests := []obj{
 		{
 			md5:  []byte("Moo"),
 			name: "foimsd",
-			data: objData{bytes.NewBuffer(nil)},
+			data: bytes.NewBuffer(nil),
 		},
 		{
 			md5:  nil,
 			name: "GonnaError",
-			data: objData{bytes.NewBuffer(nil)},
+			data: bytes.NewBuffer(nil),
 		},
 	}
 	for _, test := range tests {
-		testRes, err := getHashOfGCSFile(test)
+		testRes, err := getHashOfFile(test)
 		if (test.md5 != nil && (!reflect.DeepEqual(testRes, test.md5) || err != nil)) || (test.md5 == nil && (testRes != nil || err == nil)) {
 			t.Errorf("Expected %s got %s, %v for %+v", test.md5, testRes, err, test)
 		}

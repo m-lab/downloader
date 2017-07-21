@@ -20,9 +20,9 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
-const retryTimeSeed = 1 // The time (in minutes) to wait before the first retry of a failed download
-const sleepInterval = 8 // The average time (in hours) to wait in between attempts to download files
-const maxTime = 15
+const retryTimeSeed = time.Minute * time.Duration(1) // The time (in minutes) to wait before the first retry of a failed download
+const sleepInterval = 8                              // The average time (in hours) to wait in between attempts to download files
+const maxTime = time.Minute * time.Duration(8)
 
 // URLAndID is a struct for bundling the Routeview URL and Seqnum together into a single struct. This is the return value of the genRouteviewsURLs function
 type URLAndID struct {
@@ -236,13 +236,13 @@ func download(config interface{}) (error, bool) {
 }
 
 // retryDownloadAfterError works in tandem with download to handle the retry logic of the function. Essentially, it waits the time given by retryTime (in minutes), and then retries the download with double the amount of wait time passed into the download function. If the download wait time is beyond 15 minutes, it will simply give up and return the error.
-func runFunctionWithRetry(function func(interface{}) (error, bool), config interface{}, retryTimeMin int, retryTimeMax int) error {
+func runFunctionWithRetry(function func(interface{}) (error, bool), config interface{}, retryTimeMin time.Duration, retryTimeMax time.Duration) error {
 	retryTime := retryTimeMin
-	for err, forceIgnore := download(config); !forceIgnore && err != nil; err, forceIgnore = function(config) {
-		if retryTime > retryTimeMax {
+	for err, forceIgnore := function(config); err != nil; err, forceIgnore = function(config) {
+		if forceIgnore || retryTime > retryTimeMax {
 			return err
 		}
-		time.Sleep(time.Duration(retryTime) * time.Minute)
+		time.Sleep(retryTime)
 		retryTime = retryTime * 2
 	}
 	return nil
@@ -250,7 +250,7 @@ func runFunctionWithRetry(function func(interface{}) (error, bool), config inter
 
 // determineIfFileIsNew takes a bucket handle, a filename, and a search dir and determines if any of the files in the search dir are duplicates of the file given by filename. If there is a duplicate then the file is not new and it returns false. If there is not duplicate (or if we are unsure, just to be safe) we return true, indicating that the file is new and should be kept.
 func determineIfFileIsNew(fileStore store, fileName string, searchDir string) bool {
-	md5Hash, err := getHashOfGCSFile(fileStore.getFile(fileName))
+	md5Hash, err := getHashOfFile(fileStore.getFile(fileName))
 	if err != nil {
 		log.Println(err)
 		return true
@@ -260,7 +260,7 @@ func determineIfFileIsNew(fileStore store, fileName string, searchDir string) bo
 }
 
 // getHashOfGCSFile takes a bucket handle and a filename specefying a file in that bucket and returns the MD5 hash of that file, or an error if we cannot get the hash
-func getHashOfGCSFile(obj fileObject) ([]byte, error) {
+func getHashOfFile(obj fileObject) ([]byte, error) {
 	attrs, err := obj.getAttrs()
 	if err != nil {
 		DownloaderErrorCount.With(prometheus.Labels{"source": "Couldn't get GCS File Attributes for hash generation"}).Inc()
