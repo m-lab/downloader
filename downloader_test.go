@@ -21,14 +21,14 @@ type testStore struct {
 	files map[string]obj
 }
 
-func (fsto testStore) getFile(name string) fileObject {
+func (fsto *testStore) getFile(name string) fileObject {
 	if file, ok := fsto.files[name]; ok {
 		return file
 	}
-	return &obj{name: name, md5: nil, data: bytes.NewBuffer(nil), fsto: &fsto}
+	return obj{name: name, md5: nil, data: bytes.NewBuffer(nil), fsto: fsto}
 }
 
-func (fsto testStore) getFiles(prefix string) []fileAttributes {
+func (fsto *testStore) getFiles(prefix string) []fileAttributes {
 	var attrSlice []fileAttributes = nil
 	for key, object := range fsto.files {
 		if strings.HasPrefix(key, prefix) {
@@ -96,6 +96,39 @@ func (file obj) getMD5() []byte {
 //// End of stubs for testing
 
 func Test_downloadMaxmindFiles(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, r.URL.String())
+	}))
+	tests := []struct {
+		urls      []string
+		timestamp string
+		fsto      store
+		res       bool
+	}{
+		{
+			urls: []string{
+				ts.URL + "/filename",
+			},
+			timestamp: "2006/01/02/15:04:05-",
+			fsto:      &testStore{map[string]obj{}},
+			res:       false,
+		},
+		{
+			urls: []string{
+				ts.URL + "/filename",
+				ts.URL + "/deleteFail",
+			},
+			timestamp: "2006/01/02/15:04:05-",
+			fsto:      &testStore{map[string]obj{}},
+			res:       true,
+		},
+	}
+	for _, test := range tests {
+		didFail := downloadMaxmindFiles(test.urls, test.timestamp, test.fsto)
+		if didFail != test.res {
+			t.Errorf("Expected %t, got %t for %+v\n\n, file sto: %+v, fstoaddr: ", test.res, didFail, test, test.fsto, &test.fsto)
+		}
+	}
 
 }
 
@@ -113,7 +146,7 @@ func Test_downloadRouteviewsFiles(t *testing.T) {
 			dir:     "test1/",
 			lastD:   0,
 			lastS:   3365,
-			fsto:    testStore{map[string]obj{}},
+			fsto:    &testStore{map[string]obj{}},
 			res:     false,
 		},
 		{
@@ -121,7 +154,7 @@ func Test_downloadRouteviewsFiles(t *testing.T) {
 			dir:     "test2/",
 			lastD:   0,
 			lastS:   3364,
-			fsto:    testStore{map[string]obj{}},
+			fsto:    &testStore{map[string]obj{}},
 			res:     true,
 		},
 		{
@@ -129,7 +162,7 @@ func Test_downloadRouteviewsFiles(t *testing.T) {
 			dir:     "test3/",
 			lastD:   0,
 			lastS:   0,
-			fsto:    testStore{map[string]obj{}},
+			fsto:    &testStore{map[string]obj{}},
 			res:     true,
 		},
 	}
@@ -215,7 +248,7 @@ func Test_download(t *testing.T) {
 		{
 			dc: downloadConfig{
 				url:       "Fill me",
-				fileStore: testStore{map[string]obj{}},
+				fileStore: &testStore{map[string]obj{}},
 				prefix:    "pre/",
 				backChars: 0,
 			},
@@ -226,7 +259,7 @@ func Test_download(t *testing.T) {
 		{
 			dc: downloadConfig{
 				url:       "Fill me",
-				fileStore: testStore{map[string]obj{}},
+				fileStore: &testStore{map[string]obj{}},
 				prefix:    "pre/",
 				backChars: 0,
 			},
@@ -237,7 +270,7 @@ func Test_download(t *testing.T) {
 		{
 			dc: downloadConfig{
 				url:       "Fill me",
-				fileStore: testStore{map[string]obj{}},
+				fileStore: &testStore{map[string]obj{}},
 				prefix:    "pre/",
 				backChars: 0,
 			},
@@ -248,7 +281,7 @@ func Test_download(t *testing.T) {
 		{
 			dc: downloadConfig{
 				url: "Fill me",
-				fileStore: testStore{map[string]obj{
+				fileStore: &testStore{map[string]obj{
 					"pre/file.del/dup": obj{name: "pre/file.del/dup", data: bytes.NewBuffer(nil), md5: []byte("NEW FILE")},
 				}},
 				prefix:    "pre/",
@@ -261,7 +294,7 @@ func Test_download(t *testing.T) {
 		{
 			dc: downloadConfig{
 				url:       "Fill me",
-				fileStore: testStore{map[string]obj{}},
+				fileStore: &testStore{map[string]obj{}},
 				prefix:    "pre/",
 				backChars: 0,
 			},
@@ -354,13 +387,13 @@ func Test_runFunctionWithRetry(t *testing.T) {
 
 func Test_determineIfFileIsNew(t *testing.T) {
 	tests := []struct {
-		fs        testStore
+		fs        *testStore
 		directory string
 		filename  string
 		res       bool
 	}{
 		{
-			fs: testStore{map[string]obj{
+			fs: &testStore{map[string]obj{
 				"search/unique":     obj{name: "search/unique", data: nil, md5: []byte("123")},
 				"search/thing":      obj{name: "search/thing", data: nil, md5: []byte("000")},
 				"search/stuff":      obj{name: "search/stuff", data: nil, md5: []byte("765")},
@@ -371,7 +404,7 @@ func Test_determineIfFileIsNew(t *testing.T) {
 			res:       true,
 		},
 		{
-			fs: testStore{map[string]obj{
+			fs: &testStore{map[string]obj{
 				"search/unique":     obj{name: "search/unique", data: nil, md5: []byte("123")},
 				"search/thing":      obj{name: "search/thing", data: nil, md5: []byte("000")},
 				"search/stuff":      obj{name: "search/stuff", data: nil, md5: []byte("123")},
@@ -382,7 +415,7 @@ func Test_determineIfFileIsNew(t *testing.T) {
 			res:       false,
 		},
 		{
-			fs: testStore{map[string]obj{
+			fs: &testStore{map[string]obj{
 				"search/unique":     obj{name: "search/unique", data: nil, md5: []byte("123")},
 				"search/thing":      obj{name: "search/thing", data: nil, md5: []byte("000")},
 				"search/stuff":      obj{name: "search/stuff", data: nil, md5: []byte("765")},
@@ -393,7 +426,7 @@ func Test_determineIfFileIsNew(t *testing.T) {
 			res:       false,
 		},
 		{
-			fs: testStore{map[string]obj{
+			fs: &testStore{map[string]obj{
 				"search/unique":     obj{name: "search/unique", data: nil, md5: nil},
 				"search/thing":      obj{name: "search/thing", data: nil, md5: []byte("000")},
 				"search/stuff":      obj{name: "search/stuff", data: nil, md5: []byte("765")},
@@ -404,7 +437,7 @@ func Test_determineIfFileIsNew(t *testing.T) {
 			res:       true,
 		},
 		{
-			fs: testStore{map[string]obj{
+			fs: &testStore{map[string]obj{
 				"otherDir/ignoreMe": obj{name: "otherDir/ignoreMe", data: nil, md5: []byte("123")},
 			}},
 			directory: "search/",

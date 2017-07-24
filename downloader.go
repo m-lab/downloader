@@ -231,7 +231,7 @@ func download(config interface{}) (error, bool) {
 	resp.Body.Close()
 
 	// Check to make sure we didn't just download a duplicate, and delete it if we did.
-	fileNew := determineIfFileIsNew(dc.fileStore, dc.prefix+filename, dc.prefix+filename[:8])
+	fileNew := determineIfFileIsNew(dc.fileStore, dc.prefix+filename, dc.prefix+filename[:dc.backChars])
 	if !fileNew {
 		err = obj.deleteFile()
 		if err != nil {
