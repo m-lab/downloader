@@ -20,12 +20,12 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
-const retryTimeSeed = time.Minute * time.Duration(1) // The time (in minutes) to wait before the first retry of a failed download
-const sleepInterval = 8                              // The average time (in hours) to wait in between attempts to download files
-const maxTime = time.Minute * time.Duration(8)
+const waitAfterFirstDownloadFailure = time.Minute * time.Duration(1) // The time (in minutes) to wait before the first retry of a failed download
+const averageHoursBetweenUpdateChecks = 8                            // The average time (in hours) to wait in between attempts to download files
+const maximumWaitBetweenDownloadAttempts = time.Minute * time.Duration(8)
 
 // URLAndID is a struct for bundling the Routeview URL and Seqnum together into a single struct. This is the return value of the genRouteviewsURLs function
-type URLAndID struct {
+type urlAndID struct {
 	URL string // The URL pointing to the file we need to download
 	ID  int    // The seqnum of the file, as given in the routeview generation log file
 }
@@ -135,7 +135,7 @@ func loopOverURLsForever(bucketName string, ctx context.Context) {
 		if !maxmindFailure && !routeviewIPv4Failure && !routeviewIPv6Failure {
 			LastSuccessTime.SetToCurrentTime()
 		}
-		time.Sleep(time.Duration(genSleepTime(sleepInterval)) * time.Hour)
+		time.Sleep(time.Duration(genSleepTime(averageHoursBetweenUpdateChecks)) * time.Hour)
 	}
 }
 
@@ -144,7 +144,7 @@ func downloadMaxmindFiles(urls []string, timestamp string, fileStore store) bool
 	failure := false
 	for _, url := range urls {
 		dc := downloadConfig{url: url, fileStore: fileStore, prefix: "Maxmind/" + timestamp, backChars: 0}
-		if err := runFunctionWithRetry(download, dc, retryTimeSeed, maxTime); err != nil {
+		if err := runFunctionWithRetry(download, dc, waitAfterFirstDownloadFailure, maximumWaitBetweenDownloadAttempts); err != nil {
 			failure = true
 			log.Println(err)
 			FailedDownloadCount.With(prometheus.Labels{"DownloadType": "Maxmind"}).Inc()
@@ -164,7 +164,7 @@ func downloadRouteviewsFiles(logFileURL string, directory string, lastDownloaded
 	routeViewsDownloadFailure := false
 	for _, urlAndID := range routeViewsURLsAndIDs {
 		dc := downloadConfig{url: urlAndID.URL, fileStore: fileStore, prefix: directory, backChars: 8}
-		if err := runFunctionWithRetry(download, dc, retryTimeSeed, maxTime); err != nil {
+		if err := runFunctionWithRetry(download, dc, waitAfterFirstDownloadFailure, maximumWaitBetweenDownloadAttempts); err != nil {
 			routeViewsDownloadFailure = true
 			log.Println(err)
 			FailedDownloadCount.With(prometheus.Labels{"DownloadType": directory}).Inc()
@@ -291,8 +291,8 @@ func checkIfHashIsUniqueInList(md5Hash []byte, fileAttrsList []fileAttributes, f
 }
 
 // genRouteViewsURLs takes a URL pointing to a routeview log file, and an integer corresponding to the seqnum of the last successful file download. It returns a slice of URLAndID structs which contain the files that the user needs to download from the routeview webserver.
-func genRouteViewURLs(logFileURL string, lastDownloaded int) ([]URLAndID, error) {
-	var urlsAndIDs []URLAndID = nil
+func genRouteViewURLs(logFileURL string, lastDownloaded int) ([]urlAndID, error) {
+	var urlsAndIDs []urlAndID = nil
 
 	// Compile parser regex
 	re, err := regexp.Compile(`(\d{1,6})\s*(\d{10})\s*(.*)`)
@@ -326,7 +326,7 @@ func genRouteViewURLs(logFileURL string, lastDownloaded int) ([]URLAndID, error)
 			continue
 		}
 		if seqNum > lastDownloaded {
-			urlsAndIDs = append(urlsAndIDs, URLAndID{logFileURL[:strings.LastIndex(logFileURL, "/")+1] + match[3], seqNum})
+			urlsAndIDs = append(urlsAndIDs, urlAndID{logFileURL[:strings.LastIndex(logFileURL, "/")+1] + match[3], seqNum})
 		}
 	}
 	return urlsAndIDs, nil
