@@ -2,6 +2,7 @@ package main
 
 import (
 	"io"
+	"time"
 
 	"golang.org/x/net/context"
 
@@ -9,6 +10,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"google.golang.org/api/iterator"
 )
+
+const contextTimeout time.Duration = 2 * time.Minute
 
 type store interface {
 	getFile(name string) fileObject
@@ -39,7 +42,9 @@ func (store *storeGCS) getFile(name string) fileObject {
 }
 
 func (store *storeGCS) getFiles(prefix string) []fileAttributes {
-	objects := store.bkt.Objects(store.ctx, &storage.Query{"", prefix, false})
+	ctx, cancel := context.WithTimeout(store.ctx, contextTimeout)
+	defer cancel()
+	objects := store.bkt.Objects(ctx, &storage.Query{"", prefix, false})
 	var attrs []fileAttributes = nil
 	for object, err := objects.Next(); err != iterator.Done; object, err = objects.Next() {
 		if err != nil {
@@ -58,19 +63,27 @@ type fileObjectGCS struct {
 }
 
 func (file *fileObjectGCS) getWriter() io.WriteCloser {
-	return file.obj.NewWriter(file.ctx)
+	ctx, cancel := context.WithTimeout(file.ctx, contextTimeout)
+	defer cancel()
+	return file.obj.NewWriter(ctx)
 }
 
 func (file *fileObjectGCS) getReader() (io.ReadCloser, error) {
-	return file.obj.NewReader(file.ctx)
+	ctx, cancel := context.WithTimeout(file.ctx, contextTimeout)
+	defer cancel()
+	return file.obj.NewReader(ctx)
 }
 
 func (file *fileObjectGCS) deleteFile() error {
-	return file.obj.Delete(file.ctx)
+	ctx, cancel := context.WithTimeout(file.ctx, contextTimeout)
+	defer cancel()
+	return file.obj.Delete(ctx)
 }
 
 func (file *fileObjectGCS) getAttrs() (fileAttributes, error) {
-	attr, err := file.obj.Attrs(file.ctx)
+	ctx, cancel := context.WithTimeout(file.ctx, contextTimeout)
+	defer cancel()
+	attr, err := file.obj.Attrs(ctx)
 	return &fileAttributesGCS{attr}, err
 }
 

@@ -25,9 +25,9 @@ const averageHoursBetweenUpdateChecks = 8                            // The aver
 const maximumWaitBetweenDownloadAttempts = time.Minute * time.Duration(8)
 
 // URLAndID is a struct for bundling the Routeview URL and Seqnum together into a single struct. This is the return value of the genRouteviewsURLs function
-type urlAndID struct {
-	URL string // The URL pointing to the file we need to download
-	ID  int    // The seqnum of the file, as given in the routeview generation log file
+type urlAndSeqNum struct {
+	url    string // The URL pointing to the file we need to download
+	seqnum int    // The seqnum of the file, as given in the routeview generation log file
 }
 
 type downloadConfig struct {
@@ -114,14 +114,14 @@ func main() {
 	if *bucketName == "" {
 		log.Fatal("NO BUCKET SPECIFIED!!!")
 	}
-	ctx := context.Background()
-	loopOverURLsForever(*bucketName, ctx)
+	loopOverURLsForever(*bucketName)
 }
 
 // loopOverURLsForever takes a bucketName and then tries to download the files over and over again until the end of time (waiting an average of 8 hours in between attempts)
-func loopOverURLsForever(bucketName string, ctx context.Context) {
+func loopOverURLsForever(bucketName string) {
 	lastDownloadedV4 := 0
 	lastDownloadedV6 := 0
+	ctx := context.Background()
 	timestamp := time.Now().Format("2006/01/02/15:04:05-")
 	for {
 		bkt, err := loadBucket(bucketName)
@@ -163,14 +163,14 @@ func downloadRouteviewsFiles(logFileURL string, directory string, lastDownloaded
 	}
 	routeViewsDownloadFailure := false
 	for _, urlAndID := range routeViewsURLsAndIDs {
-		dc := downloadConfig{url: urlAndID.URL, fileStore: fileStore, prefix: directory, backChars: 8}
+		dc := downloadConfig{url: urlAndID.url, fileStore: fileStore, prefix: directory, backChars: 8}
 		if err := runFunctionWithRetry(download, dc, waitAfterFirstDownloadFailure, maximumWaitBetweenDownloadAttempts); err != nil {
 			routeViewsDownloadFailure = true
 			log.Println(err)
 			FailedDownloadCount.With(prometheus.Labels{"DownloadType": directory}).Inc()
 		}
 		if !routeViewsDownloadFailure {
-			*lastDownloaded = urlAndID.ID
+			*lastDownloaded = urlAndID.seqnum
 		}
 	}
 	return routeViewsDownloadFailure
@@ -291,8 +291,8 @@ func checkIfHashIsUniqueInList(md5Hash []byte, fileAttrsList []fileAttributes, f
 }
 
 // genRouteViewsURLs takes a URL pointing to a routeview log file, and an integer corresponding to the seqnum of the last successful file download. It returns a slice of URLAndID structs which contain the files that the user needs to download from the routeview webserver.
-func genRouteViewURLs(logFileURL string, lastDownloaded int) ([]urlAndID, error) {
-	var urlsAndIDs []urlAndID = nil
+func genRouteViewURLs(logFileURL string, lastDownloaded int) ([]urlAndSeqNum, error) {
+	var urlsAndIDs []urlAndSeqNum = nil
 
 	// Compile parser regex
 	re, err := regexp.Compile(`(\d{1,6})\s*(\d{10})\s*(.*)`)
@@ -326,7 +326,7 @@ func genRouteViewURLs(logFileURL string, lastDownloaded int) ([]urlAndID, error)
 			continue
 		}
 		if seqNum > lastDownloaded {
-			urlsAndIDs = append(urlsAndIDs, urlAndID{logFileURL[:strings.LastIndex(logFileURL, "/")+1] + match[3], seqNum})
+			urlsAndIDs = append(urlsAndIDs, urlAndSeqNum{logFileURL[:strings.LastIndex(logFileURL, "/")+1] + match[3], seqNum})
 		}
 	}
 	return urlsAndIDs, nil
