@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"flag"
+	"fmt"
 	"io"
 	"log"
 	"math/rand"
@@ -216,12 +217,19 @@ func download(config interface{}) (error, bool) {
 		return err, false
 	}
 
+	if resp.StatusCode != http.StatusOK {
+		DownloaderErrorCount.With(prometheus.Labels{"source": "Webserver gave non-ok response"}).Inc()
+		resp.Body.Close()
+		return errors.New("URL:" + dc.url + " gave response code " + resp.Status), false
+	}
+
 	// Move the file into GCS
 	if _, err = io.Copy(w, resp.Body); err != nil {
 		DownloaderErrorCount.With(prometheus.Labels{"source": "Copy Error"}).Inc()
 		return err, false
 	}
 	w.Close()
+	resp.Body.Close()
 
 	// Check to make sure we didn't just download a duplicate, and delete it if we did.
 	fileNew := determineIfFileIsNew(dc.fileStore, dc.prefix+filename, dc.prefix+filename[:8])
@@ -250,6 +258,7 @@ func runFunctionWithRetry(function func(interface{}) (error, bool), config inter
 
 // determineIfFileIsNew takes a bucket handle, a filename, and a search dir and determines if any of the files in the search dir are duplicates of the file given by filename. If there is a duplicate then the file is not new and it returns false. If there is not duplicate (or if we are unsure, just to be safe) we return true, indicating that the file is new and should be kept.
 func determineIfFileIsNew(fileStore store, fileName string, searchDir string) bool {
+	fmt.Printf(searchDir)
 	md5Hash, err := getHashOfFile(fileStore.getFile(fileName))
 	if err != nil {
 		log.Println(err)

@@ -25,7 +25,7 @@ func (fsto testStore) getFile(name string) fileObject {
 	if file, ok := fsto.files[name]; ok {
 		return file
 	}
-	return &obj{name: name, md5: nil, data: nil}
+	return &obj{name: name, md5: nil, data: bytes.NewBuffer(nil), fsto: &fsto}
 }
 
 func (fsto testStore) getFiles(prefix string) []fileAttributes {
@@ -56,6 +56,9 @@ func (file obj) getReader() (io.ReadCloser, error) {
 }
 
 func (file obj) Write(p []byte) (n int, err error) {
+	if strings.HasSuffix(file.name, "copyFail") {
+		return 0, errors.New("Example Copy Error")
+	}
 	return file.data.Write(p)
 }
 
@@ -70,6 +73,9 @@ func (file obj) Close() error {
 }
 
 func (file obj) deleteFile() error {
+	if strings.HasSuffix(file.name, "deleteFail") {
+		return errors.New("Couldn't delete file!")
+	}
 	return nil
 }
 
@@ -116,6 +122,7 @@ backChars int*/
 func Test_download(t *testing.T) {
 	tests := []struct {
 		dc      downloadConfig
+		postfix string
 		resBool bool
 		resErr  error
 	}{
@@ -126,18 +133,75 @@ func Test_download(t *testing.T) {
 				prefix:    "pre/",
 				backChars: 0,
 			},
+			postfix: "portGarbage",
+			resBool: false,
+			resErr:  errors.New("invalid URL port"),
+		},
+		{
+			dc: downloadConfig{
+				url:       "Fill me",
+				fileStore: testStore{map[string]obj{}},
+				prefix:    "pre/",
+				backChars: 0,
+			},
+			postfix: "/file.error",
+			resBool: false,
+			resErr:  errors.New("non-200 error"),
+		},
+		{
+			dc: downloadConfig{
+				url:       "Fill me",
+				fileStore: testStore{map[string]obj{}},
+				prefix:    "pre/",
+				backChars: 0,
+			},
+			postfix: "/file.copyFail",
+			resBool: false,
+			resErr:  errors.New("File copy error"),
+		},
+		{
+			dc: downloadConfig{
+				url: "Fill me",
+				fileStore: testStore{map[string]obj{
+					"pre/file.del/dup": obj{name: "pre/file.del/dup", data: bytes.NewBuffer(nil), md5: []byte("NEW FILE")},
+				}},
+				prefix:    "pre/",
+				backChars: 0,
+			},
+			postfix: "/file.deleteFail",
 			resBool: true,
-			resErr:  errors.New("WRONG TYPE"),
+			resErr:  errors.New("Couldn't Delete File"),
+		},
+		{
+			dc: downloadConfig{
+				url:       "Fill me",
+				fileStore: testStore{map[string]obj{}},
+				prefix:    "pre/",
+				backChars: 0,
+			},
+			postfix: "/file.success",
+			resBool: false,
+			resErr:  nil,
 		},
 	}
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprint(w, "Stuff")
-	}))
 	if err, force := download(nil); err == nil || force != true {
 		t.Errorf("FUNCTION DID NOT REJECT INVALID INTERFACE!!!")
 	}
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		path := r.URL.Path
+		if strings.HasSuffix(path, "error") {
+			http.Error(w, "Test Error", 404)
+			return
+		}
+		fmt.Fprint(w, "Stuff")
+	}))
 	for _, test := range tests {
-		test.dc.url = ts.URL
+		test.dc.url = ts.URL + test.postfix
+		err, resBool := download(test.dc)
+		if test.resBool != resBool || (err != nil && test.resErr == nil) || (err == nil && test.resErr != nil) {
+			t.Errorf("Expected %s, %t got %s, %t", test.resErr, test.resBool, err, resBool)
+		}
+
 	}
 
 }
