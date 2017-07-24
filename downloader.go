@@ -129,10 +129,19 @@ func loopOverURLsForever(bucketName string) {
 			continue
 		}
 		fileStore := &storeGCS{bkt: bkt, ctx: ctx}
-		maxmindFailure := downloadMaxmindFiles(maxmindURLs, timestamp, fileStore)
-		routeviewIPv4Failure := downloadRouteviewsFiles("http://data.caida.org/datasets/routing/routeviews-prefix2as/pfx2as-creation.log", "RouteViewIPv4/", &lastDownloadedV4, fileStore)
-		routeviewIPv6Failure := downloadRouteviewsFiles("http://data.caida.org/datasets/routing/routeviews6-prefix2as/pfx2as-creation.log", "RouteViewIPv6/", &lastDownloadedV6, fileStore)
-		if !maxmindFailure && !routeviewIPv4Failure && !routeviewIPv6Failure {
+		maxmindErr := downloadMaxmindFiles(maxmindURLs, timestamp, fileStore)
+		routeviewIPv4Err := downloadRouteviewsFiles("http://data.caida.org/datasets/routing/routeviews-prefix2as/pfx2as-creation.log", "RouteViewIPv4/", &lastDownloadedV4, fileStore)
+		routeviewIPv6Err := downloadRouteviewsFiles("http://data.caida.org/datasets/routing/routeviews6-prefix2as/pfx2as-creation.log", "RouteViewIPv6/", &lastDownloadedV6, fileStore)
+		if maxmindErr != nil {
+			log.Println(maxmindErr)
+		}
+		if routeviewIPv4Err != nil {
+			log.Println(routeviewIPv4Err)
+		}
+		if routeviewIPv6Err != nil {
+			log.Println(routeviewIPv6Err)
+		}
+		if maxmindErr == nil && routeviewIPv4Err == nil && routeviewIPv6Err == nil {
 			LastSuccessTime.SetToCurrentTime()
 		}
 		time.Sleep(time.Duration(genSleepTime(averageHoursBetweenUpdateChecks)) * time.Hour)
@@ -140,40 +149,37 @@ func loopOverURLsForever(bucketName string) {
 }
 
 // downloadMaxmindFiles takes a slice of urls pointing to maxmind files, a timestamp that the user wants attached to the files, and the handle of the bucket they want the files stored in. It then downloads the files, stores them, and returns true on failure. Gaurenteed to to introduce duplicates.
-func downloadMaxmindFiles(urls []string, timestamp string, fileStore store) bool {
-	failure := false
+func downloadMaxmindFiles(urls []string, timestamp string, fileStore store) error {
+	var lastErr error = nil
 	for _, url := range urls {
 		dc := downloadConfig{url: url, fileStore: fileStore, prefix: "Maxmind/" + timestamp, backChars: 0}
 		if err := runFunctionWithRetry(download, dc, waitAfterFirstDownloadFailure, maximumWaitBetweenDownloadAttempts); err != nil {
-			failure = true
-			log.Println(err)
+			lastErr = err
 			FailedDownloadCount.With(prometheus.Labels{"DownloadType": "Maxmind"}).Inc()
 		}
 	}
-	return failure
+	return lastErr
 
 }
 
 // downloadRouteviewsFiles takes a url pointing to a routeview generation log, a directory prefix that the user wants the files placed in, a pointer to the ID of the last successful download, and a handle to the bucket it wants the files stored in. It will download the files listed in the log file and is gaurenteed not to introduce duplicates
-func downloadRouteviewsFiles(logFileURL string, directory string, lastDownloaded *int, fileStore store) bool {
+func downloadRouteviewsFiles(logFileURL string, directory string, lastDownloaded *int, fileStore store) error {
+	var lastErr error = nil
 	routeViewsURLsAndIDs, err := genRouteViewURLs(logFileURL, *lastDownloaded)
 	if err != nil {
-		log.Println(err)
-		return true
+		return err
 	}
-	routeViewsDownloadFailure := false
 	for _, urlAndID := range routeViewsURLsAndIDs {
 		dc := downloadConfig{url: urlAndID.url, fileStore: fileStore, prefix: directory, backChars: 8}
 		if err := runFunctionWithRetry(download, dc, waitAfterFirstDownloadFailure, maximumWaitBetweenDownloadAttempts); err != nil {
-			routeViewsDownloadFailure = true
-			log.Println(err)
+			lastErr = err
 			FailedDownloadCount.With(prometheus.Labels{"DownloadType": directory}).Inc()
 		}
-		if !routeViewsDownloadFailure {
+		if lastErr == nil {
 			*lastDownloaded = urlAndID.seqnum
 		}
 	}
-	return routeViewsDownloadFailure
+	return lastErr
 
 }
 

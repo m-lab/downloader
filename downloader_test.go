@@ -103,7 +103,7 @@ func Test_downloadMaxmindFiles(t *testing.T) {
 		urls      []string
 		timestamp string
 		fsto      store
-		res       bool
+		res       error
 	}{
 		{
 			urls: []string{
@@ -111,7 +111,7 @@ func Test_downloadMaxmindFiles(t *testing.T) {
 			},
 			timestamp: "2006/01/02/15:04:05-",
 			fsto:      &testStore{map[string]obj{}},
-			res:       false,
+			res:       nil,
 		},
 		{
 			urls: []string{
@@ -120,13 +120,13 @@ func Test_downloadMaxmindFiles(t *testing.T) {
 			},
 			timestamp: "2006/01/02/15:04:05-",
 			fsto:      &testStore{map[string]obj{}},
-			res:       true,
+			res:       errors.New(""),
 		},
 	}
 	for _, test := range tests {
-		didFail := downloadMaxmindFiles(test.urls, test.timestamp, test.fsto)
-		if didFail != test.res {
-			t.Errorf("Expected %t, got %t for %+v\n\n, file sto: %+v, fstoaddr: ", test.res, didFail, test, test.fsto, &test.fsto)
+		res := downloadMaxmindFiles(test.urls, test.timestamp, test.fsto)
+		if (res == nil && test.res != nil) || (res != nil && test.res == nil) {
+			t.Errorf("Expected %t, got %t for %+v\n\n, file sto: %+v, fstoaddr: ", test.res, res, test, test.fsto, &test.fsto)
 		}
 	}
 
@@ -139,7 +139,7 @@ func Test_downloadRouteviewsFiles(t *testing.T) {
 		lastD   int
 		lastS   int
 		fsto    store
-		res     bool
+		res     error
 	}{
 		{
 			logFile: "/logFile1",
@@ -147,7 +147,7 @@ func Test_downloadRouteviewsFiles(t *testing.T) {
 			lastD:   0,
 			lastS:   3365,
 			fsto:    &testStore{map[string]obj{}},
-			res:     false,
+			res:     nil,
 		},
 		{
 			logFile: "/logFile2",
@@ -155,7 +155,7 @@ func Test_downloadRouteviewsFiles(t *testing.T) {
 			lastD:   0,
 			lastS:   3364,
 			fsto:    &testStore{map[string]obj{}},
-			res:     true,
+			res:     errors.New(""),
 		},
 		{
 			logFile: "portGarbage",
@@ -163,7 +163,7 @@ func Test_downloadRouteviewsFiles(t *testing.T) {
 			lastD:   0,
 			lastS:   0,
 			fsto:    &testStore{map[string]obj{}},
-			res:     true,
+			res:     errors.New(""),
 		},
 	}
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -209,9 +209,9 @@ func Test_downloadRouteviewsFiles(t *testing.T) {
 		fmt.Fprint(w, r.URL.String())
 	}))
 	for _, test := range tests {
-		didFail := downloadRouteviewsFiles(ts.URL+test.logFile, test.dir, &test.lastD, test.fsto)
-		if didFail != test.res {
-			t.Errorf("Expected %t, got %t!!!", test.res, didFail)
+		res := downloadRouteviewsFiles(ts.URL+test.logFile, test.dir, &test.lastD, test.fsto)
+		if (res == nil && test.res != nil) || (res != nil && test.res == nil) {
+			t.Errorf("Expected %t, got %t!!!", test.res, res)
 		}
 		if test.lastD != test.lastS {
 			t.Errorf("Expected %d, got %d", test.lastS, test.lastD)
