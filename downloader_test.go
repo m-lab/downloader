@@ -95,6 +95,97 @@ func (file obj) getMD5() []byte {
 
 //// End of stubs for testing
 
+func Test_downloadMaxmindFiles(t *testing.T) {
+
+}
+
+func Test_downloadRouteviewsFiles(t *testing.T) {
+	tests := []struct {
+		logFile string
+		dir     string
+		lastD   int
+		lastS   int
+		fsto    store
+		res     bool
+	}{
+		{
+			logFile: "/logFile1",
+			dir:     "test1/",
+			lastD:   0,
+			lastS:   3365,
+			fsto:    testStore{map[string]obj{}},
+			res:     false,
+		},
+		{
+			logFile: "/logFile2",
+			dir:     "test2/",
+			lastD:   0,
+			lastS:   3364,
+			fsto:    testStore{map[string]obj{}},
+			res:     true,
+		},
+		{
+			logFile: "portGarbage",
+			dir:     "test3/",
+			lastD:   0,
+			lastS:   0,
+			fsto:    testStore{map[string]obj{}},
+			res:     true,
+		},
+	}
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		path := r.URL.Path
+		if strings.HasSuffix(path, "logFile1") {
+			fmt.Fprint(w, `# Format: 1
+# Fields: seqnum timestamp path
+# Generated: 2017-07-16 09:26:29 -0700
+# --------------------------------------------------------------------------
+# Check this log regularly (once or twice a day) to keep up with the
+# generation of daily files.  The easiest way to find the newest files is
+# to compare the last seqnum you downloaded to the seqnum of all entries.
+#
+# The timestamp column gives the time that a daily pfx2as file was
+# generated.  Please note that the timestamp will _not_ necessarily match
+# the date in the filename, since file generation intentionally lags behind
+# a bit.
+# --------------------------------------------------------------------------
+3363	1497717708	2017/06/routeviews-rv2-20170616-1200.pfx2as.gz
+3364	1497803191	2017/06/routeviews-rv2-20170617-1200.pfx2as.gz
+3365	1497889838	2018/06/routeviews-rv2-20170617-1000.pfx2as.gz`)
+			return
+		}
+		if strings.HasSuffix(path, "logFile2") {
+			fmt.Fprint(w, `# Format: 1
+# Fields: seqnum timestamp path
+# Generated: 2017-07-16 09:26:29 -0700
+# --------------------------------------------------------------------------
+# Check this log regularly (once or twice a day) to keep up with the
+# generation of daily files.  The easiest way to find the newest files is
+# to compare the last seqnum you downloaded to the seqnum of all entries.
+#
+# The timestamp column gives the time that a daily pfx2as file was
+# generated.  Please note that the timestamp will _not_ necessarily match
+# the date in the filename, since file generation intentionally lags behind
+# a bit.
+# --------------------------------------------------------------------------
+3363	1497717708	2017/06/routeviews-rv2-20170616-1200.pfx2as.gz
+3364	1497803191	2017/06/routeviews-rv2-20170617-1200.pfx2as.gz
+3365	1497889838	2017/06/deleteFail`)
+			return
+		}
+		fmt.Fprint(w, r.URL.String())
+	}))
+	for _, test := range tests {
+		didFail := downloadRouteviewsFiles(ts.URL+test.logFile, test.dir, &test.lastD, test.fsto)
+		if didFail != test.res {
+			t.Errorf("Expected %t, got %t!!!", test.res, didFail)
+		}
+		if test.lastD != test.lastS {
+			t.Errorf("Expected %d, got %d", test.lastS, test.lastD)
+		}
+	}
+}
+
 func Test_genSleepTime(t *testing.T) {
 	rand.Seed(0)
 	testVals := make([]float64, 5)
@@ -113,11 +204,6 @@ func Test_genSleepTime(t *testing.T) {
 	}
 
 }
-
-/*url       string
-fileStore store
-prefix    string
-backChars int*/
 
 func Test_download(t *testing.T) {
 	tests := []struct {
@@ -441,6 +527,10 @@ func Test_checkIfHashIsUniqueInList(t *testing.T) {
 
 func Test_genRouteViewURLs(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "error") {
+			http.Error(w, "Test Error", 404)
+			return
+		}
 		fmt.Fprint(w, `# Format: 1
 # Fields: seqnum timestamp path
 # Generated: 2017-07-16 09:26:29 -0700
@@ -488,10 +578,12 @@ func Test_genRouteViewURLs(t *testing.T) {
 	defer ts.Close()
 
 	tests := []struct {
+		suffix         string
+		willErr        bool
 		lastDownloaded int
 		res            []URLAndID
 	}{
-		{0, []URLAndID{
+		{"", false, 0, []URLAndID{
 			URLAndID{URL: ts.URL[:strings.LastIndex(ts.URL, "/")+1] + "2017/06/routeviews-rv2-20170616-1200.pfx2as.gz", ID: 3363},
 			URLAndID{URL: ts.URL[:strings.LastIndex(ts.URL, "/")+1] + "2017/06/routeviews-rv2-20170617-1200.pfx2as.gz", ID: 3364},
 			URLAndID{URL: ts.URL[:strings.LastIndex(ts.URL, "/")+1] + "2017/06/routeviews-rv2-20170618-1000.pfx2as.gz", ID: 3365},
@@ -523,7 +615,7 @@ func Test_genRouteViewURLs(t *testing.T) {
 			URLAndID{URL: ts.URL[:strings.LastIndex(ts.URL, "/")+1] + "2017/07/routeviews-rv2-20170714-1400.pfx2as.gz", ID: 3391},
 			URLAndID{URL: ts.URL[:strings.LastIndex(ts.URL, "/")+1] + "2017/07/routeviews-rv2-20170715-1200.pfx2as.gz", ID: 3392},
 		}},
-		{3380, []URLAndID{
+		{"", false, 3380, []URLAndID{
 			URLAndID{URL: ts.URL[:strings.LastIndex(ts.URL, "/")+1] + "2017/07/routeviews-rv2-20170704-1200.pfx2as.gz", ID: 3381},
 			URLAndID{URL: ts.URL[:strings.LastIndex(ts.URL, "/")+1] + "2017/07/routeviews-rv2-20170705-1200.pfx2as.gz", ID: 3382},
 			URLAndID{URL: ts.URL[:strings.LastIndex(ts.URL, "/")+1] + "2017/07/routeviews-rv2-20170706-1200.pfx2as.gz", ID: 3383},
@@ -537,16 +629,25 @@ func Test_genRouteViewURLs(t *testing.T) {
 			URLAndID{URL: ts.URL[:strings.LastIndex(ts.URL, "/")+1] + "2017/07/routeviews-rv2-20170714-1400.pfx2as.gz", ID: 3391},
 			URLAndID{URL: ts.URL[:strings.LastIndex(ts.URL, "/")+1] + "2017/07/routeviews-rv2-20170715-1200.pfx2as.gz", ID: 3392},
 		}},
-		{4000, nil},
+		{"", false, 4000, nil},
+		{"/error", true, 0, nil},
+		{"portGarbage", true, 0, nil},
 	}
 
 	for _, test := range tests {
-		res, err := genRouteViewURLs(ts.URL, test.lastDownloaded)
-		if err != nil {
-			t.Errorf("genRouteViewURLs returned %s on %+v, %d.", err, res, test.lastDownloaded)
-		}
-		if !reflect.DeepEqual(res, test.res) {
-			t.Errorf("Expected \n%+v\n, got \n%+v", test.res, res)
+		res, err := genRouteViewURLs(ts.URL+test.suffix, test.lastDownloaded)
+		if !test.willErr {
+			if err != nil {
+				t.Errorf("genRouteViewURLs returned %s on %+v, %d.", err, res, test.lastDownloaded)
+			}
+			if !reflect.DeepEqual(res, test.res) {
+				t.Errorf("Expected \n%+v\n, got \n%+v", test.res, res)
+			}
+		} else {
+			if err == nil {
+				t.Errorf("Expected error, got nil on %+v", test)
+			}
+
 		}
 	}
 

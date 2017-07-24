@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"errors"
 	"flag"
-	"fmt"
 	"io"
 	"log"
 	"math/rand"
@@ -258,7 +257,6 @@ func runFunctionWithRetry(function func(interface{}) (error, bool), config inter
 
 // determineIfFileIsNew takes a bucket handle, a filename, and a search dir and determines if any of the files in the search dir are duplicates of the file given by filename. If there is a duplicate then the file is not new and it returns false. If there is not duplicate (or if we are unsure, just to be safe) we return true, indicating that the file is new and should be kept.
 func determineIfFileIsNew(fileStore store, fileName string, searchDir string) bool {
-	fmt.Printf(searchDir)
 	md5Hash, err := getHashOfFile(fileStore.getFile(fileName))
 	if err != nil {
 		log.Println(err)
@@ -309,6 +307,11 @@ func genRouteViewURLs(logFileURL string, lastDownloaded int) ([]URLAndID, error)
 		RouteviewsURLErrorCount.With(prometheus.Labels{"source": "Couldn't grab the log file from the Routeviews server."}).Inc()
 		return nil, err
 	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		RouteviewsURLErrorCount.With(prometheus.Labels{"source": "Webserver gave non-ok response"}).Inc()
+		return nil, errors.New("URL:" + logFileURL + " gave response code " + resp.Status)
+	}
 
 	// Match parse the data we need from the log file
 	responseBodyBuffer := new(bytes.Buffer)
@@ -324,7 +327,6 @@ func genRouteViewURLs(logFileURL string, lastDownloaded int) ([]URLAndID, error)
 		}
 		if seqNum > lastDownloaded {
 			urlsAndIDs = append(urlsAndIDs, URLAndID{logFileURL[:strings.LastIndex(logFileURL, "/")+1] + match[3], seqNum})
-			lastDownloaded = seqNum
 		}
 	}
 	return urlsAndIDs, nil
