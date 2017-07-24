@@ -124,7 +124,7 @@ func loopOverURLsForever(bucketName string) {
 	ctx := context.Background()
 	timestamp := time.Now().Format("2006/01/02/15:04:05-")
 	for {
-		bkt, err := loadBucket(bucketName)
+		bkt, err := constructBucketHandle(bucketName)
 		if err != nil {
 			continue
 		}
@@ -193,9 +193,9 @@ func genSleepTime(sleepInterval float64) float64 {
 }
 
 // loadBucket takes a bucket name and safely loads it, returning either the handle to the bucket or an error
-func loadBucket(bucketName string) (*storage.BucketHandle, error) {
-	ctx := context.Background()
-
+func constructBucketHandle(bucketName string) (*storage.BucketHandle, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
 	client, err := storage.NewClient(ctx)
 	if err != nil {
 		DownloaderErrorCount.With(prometheus.Labels{"source": "Client Setup"}).Inc()
