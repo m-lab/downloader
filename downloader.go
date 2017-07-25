@@ -190,15 +190,6 @@ func downloadRouteviewsFiles(logFileURL string, directory string, lastDownloaded
 
 }
 
-// genSleepTime generates a random time to sleep (in hours) that is on average, the time given by sleepInterval. It will also max out and cap the return value at 20 hours.
-func genSleepTime(sleepInterval float64) float64 {
-	sleepTime := rand.ExpFloat64() * sleepInterval
-	if sleepTime > 20 {
-		sleepTime = 20
-	}
-	return sleepTime
-}
-
 // genSleepTime generatres a random time to sleep (in hours) that is on average, the time given by sleepInterval. It will give a random time in the interval specefied by sleepDeviation (centered around sleepInterval).
 func genUniformSleepTime(sleepInterval float64, sleepDeviation float64) float64 {
 	return (rand.Float64()-0.5)*sleepDeviation + sleepInterval
