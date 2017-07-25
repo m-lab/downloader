@@ -238,6 +238,22 @@ func Test_genSleepTime(t *testing.T) {
 
 }
 
+func Test_genUniformSleepTime(t *testing.T) {
+	rand.Seed(0)
+	testVals := make([]float64, 5)
+	testVals[0] = 9.780784597176465
+	testVals[1] = 6.979860341175119
+	testVals[2] = 8.623825060781620
+	testVals[3] = 6.217375358398802
+	testVals[4] = 7.470348826529834
+	for i := 0; i < 5; i++ {
+		testRes := genUniformSleepTime(8, 4)
+		if testVals[i] != testRes {
+			t.Errorf("Expected %s, got %s.", testVals[i], testRes)
+		}
+	}
+}
+
 func Test_download(t *testing.T) {
 	tests := []struct {
 		dc      downloadConfig

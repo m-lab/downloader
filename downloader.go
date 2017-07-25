@@ -21,8 +21,9 @@ import (
 )
 
 const waitAfterFirstDownloadFailure = time.Minute * time.Duration(1)      // The time (in minutes) to wait before the first retry of a failed download
-const averageHoursBetweenUpdateChecks = 8                                 // The average time (in hours) to wait in between attempts to download files
 const maximumWaitBetweenDownloadAttempts = time.Minute * time.Duration(8) // The maximum time (in minutes) to wait in between download attempts
+const averageHoursBetweenUpdateChecks = 8                                 // The average time (in hours) to wait in between attempts to download files
+const windowForRandomTimeBetweenUpdateChecks = 8                          // The window of time (in hours) to allow a random time to be chosen from.
 
 // urlAndSeqNum is a struct for bundling the Routeview URL and Seqnum together into a single struct. This is the return value of the genRouteviewsURLs function
 type urlAndSeqNum struct {
@@ -150,7 +151,7 @@ func loopOverURLsForever(bucketName string) {
 		if maxmindErr == nil && routeviewIPv4Err == nil && routeviewIPv6Err == nil {
 			LastSuccessTime.SetToCurrentTime()
 		}
-		time.Sleep(time.Duration(genSleepTime(averageHoursBetweenUpdateChecks)) * time.Hour)
+		time.Sleep(time.Duration(genUniformSleepTime(averageHoursBetweenUpdateChecks, windowForRandomTimeBetweenUpdateChecks)) * time.Hour)
 	}
 }
 
@@ -196,6 +197,11 @@ func genSleepTime(sleepInterval float64) float64 {
 		sleepTime = 20
 	}
 	return sleepTime
+}
+
+// genSleepTime generatres a random time to sleep (in hours) that is on average, the time given by sleepInterval. It will give a random time in the interval specefied by sleepDeviation (centered around sleepInterval).
+func genUniformSleepTime(sleepInterval float64, sleepDeviation float64) float64 {
+	return (rand.Float64()-0.5)*sleepDeviation + sleepInterval
 }
 
 // constructBucketHandle takes a bucket name and safely loads it, returning either the handle to the bucket or an error
