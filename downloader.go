@@ -20,23 +20,25 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
-const waitAfterFirstDownloadFailure = time.Minute * time.Duration(1) // The time (in minutes) to wait before the first retry of a failed download
-const averageHoursBetweenUpdateChecks = 8                            // The average time (in hours) to wait in between attempts to download files
-const maximumWaitBetweenDownloadAttempts = time.Minute * time.Duration(8)
+const waitAfterFirstDownloadFailure = time.Minute * time.Duration(1)      // The time (in minutes) to wait before the first retry of a failed download
+const averageHoursBetweenUpdateChecks = 8                                 // The average time (in hours) to wait in between attempts to download files
+const maximumWaitBetweenDownloadAttempts = time.Minute * time.Duration(8) // The maximum time (in minutes) to wait in between download attempts
 
-// URLAndID is a struct for bundling the Routeview URL and Seqnum together into a single struct. This is the return value of the genRouteviewsURLs function
+// urlAndSeqNum is a struct for bundling the Routeview URL and Seqnum together into a single struct. This is the return value of the genRouteviewsURLs function
 type urlAndSeqNum struct {
 	url    string // The URL pointing to the file we need to download
 	seqnum int    // The seqnum of the file, as given in the routeview generation log file
 }
 
+// downloadConfig is a struct for bundling parameters to be passed through runFunctionWithRetry to the download function.
 type downloadConfig struct {
-	url       string
-	fileStore store
-	prefix    string
-	backChars int
+	url       string // The URL of the file to download
+	fileStore store  // The store in which to place the file
+	prefix    string // The prefix to append to the file name after it's downloaded
+	backChars int    // The number of extra characters from the URL to include in the file name
 }
 
+// The list of URLs to download from Maxmind
 var maxmindURLs []string = []string{
 	"http://geolite.maxmind.com/download/geoip/database/GeoLiteCity.dat.gz",
 	"http://geolite.maxmind.com/download/geoip/database/GeoLiteCityv6-beta/GeoLiteCityv6.dat.gz",
@@ -117,7 +119,7 @@ func main() {
 	loopOverURLsForever(*bucketName)
 }
 
-// loopOverURLsForever takes a bucketName and then tries to download the files over and over again until the end of time (waiting an average of 8 hours in between attempts)
+// loopOverURLsForever takes a bucketName, pointing to a GCS bucket, and then tries to download the files over and over again until the end of time (waiting an average of 8 hours in between attempts)
 func loopOverURLsForever(bucketName string) {
 	lastDownloadedV4 := 0
 	lastDownloadedV6 := 0
@@ -129,18 +131,22 @@ func loopOverURLsForever(bucketName string) {
 			continue
 		}
 		fileStore := &storeGCS{bkt: bkt, ctx: ctx}
+
 		maxmindErr := downloadMaxmindFiles(maxmindURLs, timestamp, fileStore)
-		routeviewIPv4Err := downloadRouteviewsFiles("http://data.caida.org/datasets/routing/routeviews-prefix2as/pfx2as-creation.log", "RouteViewIPv4/", &lastDownloadedV4, fileStore)
-		routeviewIPv6Err := downloadRouteviewsFiles("http://data.caida.org/datasets/routing/routeviews6-prefix2as/pfx2as-creation.log", "RouteViewIPv6/", &lastDownloadedV6, fileStore)
 		if maxmindErr != nil {
 			log.Println(maxmindErr)
 		}
+
+		routeviewIPv4Err := downloadRouteviewsFiles("http://data.caida.org/datasets/routing/routeviews-prefix2as/pfx2as-creation.log", "RouteViewIPv4/", &lastDownloadedV4, fileStore)
 		if routeviewIPv4Err != nil {
 			log.Println(routeviewIPv4Err)
 		}
+
+		routeviewIPv6Err := downloadRouteviewsFiles("http://data.caida.org/datasets/routing/routeviews6-prefix2as/pfx2as-creation.log", "RouteViewIPv6/", &lastDownloadedV6, fileStore)
 		if routeviewIPv6Err != nil {
 			log.Println(routeviewIPv6Err)
 		}
+
 		if maxmindErr == nil && routeviewIPv4Err == nil && routeviewIPv6Err == nil {
 			LastSuccessTime.SetToCurrentTime()
 		}
@@ -148,7 +154,7 @@ func loopOverURLsForever(bucketName string) {
 	}
 }
 
-// downloadMaxmindFiles takes a slice of urls pointing to maxmind files, a timestamp that the user wants attached to the files, and the handle of the bucket they want the files stored in. It then downloads the files, stores them, and returns true on failure. Gaurenteed to to introduce duplicates.
+// downloadMaxmindFiles takes a slice of urls pointing to maxmind files, a timestamp that the user wants attached to the files, and the instance of the store interface where the user wants the files stored. It then downloads the files, stores them, and returns and error on failure or nil on success. Gaurenteed to not introduce duplicates.
 func downloadMaxmindFiles(urls []string, timestamp string, fileStore store) error {
 	var lastErr error = nil
 	for _, url := range urls {
@@ -162,7 +168,7 @@ func downloadMaxmindFiles(urls []string, timestamp string, fileStore store) erro
 
 }
 
-// downloadRouteviewsFiles takes a url pointing to a routeview generation log, a directory prefix that the user wants the files placed in, a pointer to the ID of the last successful download, and a handle to the bucket it wants the files stored in. It will download the files listed in the log file and is gaurenteed not to introduce duplicates
+// downloadRouteviewsFiles takes a url pointing to a routeview generation log, a directory prefix that the user wants the files placed in, a pointer to the SeqNum of the last successful download, and the instance of the store interface where the user wants the files stored. It will download the files listed in the log file and is gaurenteed not to introduce duplicates
 func downloadRouteviewsFiles(logFileURL string, directory string, lastDownloaded *int, fileStore store) error {
 	var lastErr error = nil
 	routeViewsURLsAndIDs, err := genRouteViewURLs(logFileURL, *lastDownloaded)
@@ -186,13 +192,13 @@ func downloadRouteviewsFiles(logFileURL string, directory string, lastDownloaded
 // genSleepTime generates a random time to sleep (in hours) that is on average, the time given by sleepInterval. It will also max out and cap the return value at 20 hours.
 func genSleepTime(sleepInterval float64) float64 {
 	sleepTime := rand.ExpFloat64() * sleepInterval
-	if sleepTime > 23 {
+	if sleepTime > 20 {
 		sleepTime = 20
 	}
 	return sleepTime
 }
 
-// loadBucket takes a bucket name and safely loads it, returning either the handle to the bucket or an error
+// constructBucketHandle takes a bucket name and safely loads it, returning either the handle to the bucket or an error
 func constructBucketHandle(bucketName string) (*storage.BucketHandle, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
@@ -204,7 +210,7 @@ func constructBucketHandle(bucketName string) (*storage.BucketHandle, error) {
 	return client.Bucket(bucketName), nil
 }
 
-// download takes a URL, a time to wait in between attempted downloads, a bucket handle where the download will be stored, a prefix to add to the downloaded files, and a number of characters to add onto the begining of the filename from the URL (in addition to the actual file name given by the url). It will download the file, retrying upon failure, or returning the error if the maximum number of retries has been reached.
+// download takes a fully populated downloadConfig and downloads the file specefied by the URL, storing it in the store implementation that is passed in, in the directory specefied by the prefix, given the number of extra characters from the URL specified by backChars.
 func download(config interface{}) (error, bool) {
 	dc, ok := config.(downloadConfig)
 	if !ok {
@@ -248,7 +254,7 @@ func download(config interface{}) (error, bool) {
 	return nil, false
 }
 
-// retryDownloadAfterError works in tandem with download to handle the retry logic of the function. Essentially, it waits the time given by retryTime (in minutes), and then retries the download with double the amount of wait time passed into the download function. If the download wait time is beyond 15 minutes, it will simply give up and return the error.
+// runFunctionWithRetry takes a struct and a function to pass it to and will run that function, giving it that argument. If the function returns a non-nil error, the function will be retried unless it also returned a boolean flag specefying that it encountered an unrecoverable error. It also takes a retryTimeMin to wait after the first failure before retrying. After each failure, it will wait twice as long until it reaches the retryTimeMax, which makes it return the last error it encountered.
 func runFunctionWithRetry(function func(interface{}) (error, bool), config interface{}, retryTimeMin time.Duration, retryTimeMax time.Duration) error {
 	retryTime := retryTimeMin
 	for err, forceIgnore := function(config); err != nil; err, forceIgnore = function(config) {
@@ -261,7 +267,7 @@ func runFunctionWithRetry(function func(interface{}) (error, bool), config inter
 	return nil
 }
 
-// determineIfFileIsNew takes a bucket handle, a filename, and a search dir and determines if any of the files in the search dir are duplicates of the file given by filename. If there is a duplicate then the file is not new and it returns false. If there is not duplicate (or if we are unsure, just to be safe) we return true, indicating that the file is new and should be kept.
+// determineIfFileIsNew takes an implementation of the store interface, a filename, and a search dir and determines if any of the files in the search dir are duplicates of the file given by filename. If there is a duplicate then the file is not new and it returns false. If there is not duplicate (or if we are unsure, just to be safe) we return true, indicating that the file is new and should be kept.
 func determineIfFileIsNew(fileStore store, fileName string, searchDir string) bool {
 	md5Hash, err := getHashOfFile(fileStore.getFile(fileName))
 	if err != nil {
@@ -272,7 +278,7 @@ func determineIfFileIsNew(fileStore store, fileName string, searchDir string) bo
 	return checkIfHashIsUniqueInList(md5Hash, objects, fileName)
 }
 
-// getHashOfGCSFile takes a bucket handle and a filename specefying a file in that bucket and returns the MD5 hash of that file, or an error if we cannot get the hash
+// getHashOfGCSFile takes an implementation of the fileObject interface and returns the MD5 hash of that fileObject, or an error if we cannot get the hash
 func getHashOfFile(obj fileObject) ([]byte, error) {
 	attrs, err := obj.getAttrs()
 	if err != nil {
@@ -282,7 +288,7 @@ func getHashOfFile(obj fileObject) ([]byte, error) {
 	return attrs.getMD5(), nil
 }
 
-// checkIfHashIsUniqueInList takes an MD5 hash, an ObjectIterator of file attributes, and a filename corresponding to the MD5 hash. It will return false if it finds another file in the ObjectIterator with a matching MD5 and a different filename. Otherwise, it will return true.
+// checkIfHashIsUniqueInList takes an MD5 hash, a slice of fileAttributes, and a filename corresponding to the MD5 hash. It will return false if it finds another file in the slice with a matching MD5 and a different filename. Otherwise, it will return true.
 func checkIfHashIsUniqueInList(md5Hash []byte, fileAttrsList []fileAttributes, fileName string) bool {
 	if fileAttrsList == nil {
 		DownloaderErrorCount.With(prometheus.Labels{"source": "Couldn't get list of other files in directory"}).Inc()
@@ -296,7 +302,7 @@ func checkIfHashIsUniqueInList(md5Hash []byte, fileAttrsList []fileAttributes, f
 	return true
 }
 
-// genRouteViewsURLs takes a URL pointing to a routeview log file, and an integer corresponding to the seqnum of the last successful file download. It returns a slice of URLAndID structs which contain the files that the user needs to download from the routeview webserver.
+// genRouteViewsURLs takes a URL pointing to a routeview log file, and an integer corresponding to the seqnum of the last successful file download. It returns a slice of urlAndSeqNum structs which contain the files that the user needs to download from the routeview webserver.
 func genRouteViewURLs(logFileURL string, lastDownloaded int) ([]urlAndSeqNum, error) {
 	var urlsAndIDs []urlAndSeqNum = nil
 
