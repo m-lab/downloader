@@ -25,6 +25,8 @@ items:
         creationTimestamp: null
         labels:
           run: downloader
+        annotations:
+          prometheus.io/scrape: 'true'
       spec:
         containers:
         - env:
