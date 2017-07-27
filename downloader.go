@@ -258,6 +258,7 @@ func runFunctionWithRetry(function func(interface{}) (error, bool), config inter
 		if forceIgnore || retryTime > retryTimeMax {
 			return err
 		}
+		log.Println(err)
 		time.Sleep(retryTime)
 		retryTime = retryTime * 2
 	}
