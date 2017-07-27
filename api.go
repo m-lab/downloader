@@ -42,8 +42,9 @@ func (store *storeGCS) getFile(name string) fileObject {
 }
 
 func (store *storeGCS) getFiles(prefix string) []fileAttributes {
-	ctx, cancel := context.WithTimeout(store.ctx, contextTimeout)
-	defer cancel()
+	//ctx, cancel := context.WithTimeout(store.ctx, contextTimeout)
+	//defer cancel()
+	ctx := store.ctx
 	objects := store.bkt.Objects(ctx, &storage.Query{"", prefix, false})
 	var attrs []fileAttributes = nil
 	for object, err := objects.Next(); err != iterator.Done; object, err = objects.Next() {
@@ -63,26 +64,30 @@ type fileObjectGCS struct {
 }
 
 func (file *fileObjectGCS) getWriter() io.WriteCloser {
-	ctx, cancel := context.WithTimeout(file.ctx, contextTimeout)
-	defer cancel()
+	//ctx, cancel := context.WithTimeout(file.ctx, contextTimeout)
+	//defer cancel()
+	ctx := file.ctx
 	return file.obj.NewWriter(ctx)
 }
 
 func (file *fileObjectGCS) getReader() (io.ReadCloser, error) {
-	ctx, cancel := context.WithTimeout(file.ctx, contextTimeout)
-	defer cancel()
+	//ctx, cancel := context.WithTimeout(file.ctx, contextTimeout)
+	//defer cancel()
+	ctx := file.ctx
 	return file.obj.NewReader(ctx)
 }
 
 func (file *fileObjectGCS) deleteFile() error {
-	ctx, cancel := context.WithTimeout(file.ctx, contextTimeout)
-	defer cancel()
+	//ctx, cancel := context.WithTimeout(file.ctx, contextTimeout)
+	//defer cancel()
+	ctx := file.ctx
 	return file.obj.Delete(ctx)
 }
 
 func (file *fileObjectGCS) getAttrs() (fileAttributes, error) {
-	ctx, cancel := context.WithTimeout(file.ctx, contextTimeout)
-	defer cancel()
+	//ctx, cancel := context.WithTimeout(file.ctx, contextTimeout)
+	//defer cancel()
+	ctx := file.ctx
 	attr, err := file.obj.Attrs(ctx)
 	return &fileAttributesGCS{attr}, err
 }
