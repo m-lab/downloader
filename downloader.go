@@ -197,8 +197,9 @@ func genUniformSleepTime(sleepInterval float64, sleepDeviation float64) float64 
 
 // constructBucketHandle takes a bucket name and safely loads it, returning either the handle to the bucket or an error
 func constructBucketHandle(bucketName string) (*storage.BucketHandle, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
-	defer cancel()
+	//ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	//defer cancel()
+	ctx := context.Background()
 	client, err := storage.NewClient(ctx)
 	if err != nil {
 		DownloaderErrorCount.With(prometheus.Labels{"source": "Client Setup"}).Inc()

@@ -28,11 +28,20 @@ items:
         annotations:
           prometheus.io/scrape: 'true'
       spec:
+        volumes:
+          - name: google-cloud-key
+            secret:
+              secretName: d-key
         containers:
         - env:
           - name: DOWNLOADER_BUCKET
             value: "{{BUCKET_NAME}}"
+          - name: GOOGLE_APPLICATION_CREDENTIALS
+            value: /var/secrets/google/key.json
           image: gcr.io/mlab-sandbox/downloader:{{GITHUB_COMMIT}}
+          volumeMounts:
+            - name: google-cloud-key
+              mountPath: /var/secrets/google
           imagePullPolicy: IfNotPresent
           name: downloader
           ports:
