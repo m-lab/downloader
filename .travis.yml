@@ -2,3 +2,69 @@ language: go
 
 go:
   - 1.8
+
+
+  
+# Cache Gcloud SDK between commands
+cache:
+  directories:
+    - "$HOME/google-cloud-sdk/"
+
+# Install services
+services:
+  - docker
+
+# Set env vars
+env:
+  global:
+    - PROJECT_NAME_BOX=mlab-sandbox
+    - CLUSTER_NAME_BOX=downloader
+    - BUCKET_NAME_BOX=maxmind-feed-sandbox
+    - PROJECT_NAME_STG=mlab-staging
+    - CLUSTER_NAME_STG=downloader
+    - BUCKET_NAME_STG=what-bucket-should-we-use-for-staging
+    - PROJECT_NAME_PRD=mlab-oti
+    - CLUSTER_NAME_PRD=downloader
+    - BUCKET_NAME_PRD=what-bucket-should-we-use-for-production
+    - CLOUDSDK_COMPUTE_ZONE=us-central1-a
+    - DOCKER_IMAGE_NAME=downloader
+    - NODE_ENV=CI
+
+before_deploy:
+  - if [ ! -d "$HOME/google-cloud-sdk/bin" ]; then rm -rf $HOME/google-cloud-sdk; export CLOUDSDK_CORE_DISABLE_PROMPTS=1; curl https://sdk.cloud.google.com | bash; fi
+  - source /home/travis/google-cloud-sdk/path.bash.inc
+  - gcloud --quiet version
+  - gcloud --quiet components update
+  - gcloud --quiet components update
+  - gcloud --quiet components update kubectl
+  - ls
+
+deploy:
+#########################################
+## Sandbox
+- provider: script
+  script: $TRAVIS_BUILD_DIR/deployment/deploy-sandbox.sh
+  skip_cleanup: true
+  on:
+    repo: m-lab/downloader
+    all_branches: true
+    condition: $TRAVIS_BRANCH == sandbox-* && $TRAVIS_EVENT_TYPE == push
+
+
+#########################################
+## Staging
+- provider: script
+  script: $TRAVIS_BUILD_DIR/deployment/deploy-staging.sh
+  skip_cleanup: true
+  on:
+    repo: m-lab/downloader
+    branch: integration
+
+#########################################
+## Production
+- provider: script
+  script: $TRAVIS_BUILD_DIR/deployment/deploy-production.sh
+  skip_cleanup: true
+  on:
+    repo: m-lab/downloader
+    branch: master
