@@ -31,7 +31,7 @@ items:
         volumes:
           - name: google-cloud-key
             secret:
-              secretName: d-key
+              secretName: downloader-app-key
         containers:
         - env:
           - name: DOWNLOADER_BUCKET
