@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"errors"
+	"flag"
 	"io"
 	"log"
 	"math/rand"
@@ -16,6 +17,7 @@ import (
 
 	"cloud.google.com/go/storage"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 const waitAfterFirstDownloadFailure = time.Minute * time.Duration(1)      // The time (in minutes) to wait before the first retry of a failed download
@@ -94,7 +96,64 @@ var (
 	}, []string{"source"})
 )
 
-func main() {}
+// setupPrometheus takes no arguments and sets up prometheus metrics for the package
+func setupPrometheus() {
+	http.Handle("/metrics", promhttp.Handler())
+	prometheus.MustRegister(LastSuccessTime)
+	prometheus.MustRegister(FailedDownloadCount)
+	prometheus.MustRegister(DownloaderErrorCount)
+	prometheus.MustRegister(RouteviewsURLErrorCount)
+}
+
+// The main function seeds the random number generator, starts prometheus in the background, takes the bucket flag from the command line, and kicks off the actual downloader loop
+func main() {
+	rand.Seed(time.Now().UTC().UnixNano())
+	setupPrometheus()
+	go func() {
+		log.Fatal(http.ListenAndServe(":8080", nil))
+	}()
+	bucketName := flag.String("bucket", "", "Specify the bucket name to store the results in.")
+	flag.Parse()
+	if *bucketName == "" {
+		log.Fatal("NO BUCKET SPECIFIED!!!")
+	}
+	loopOverURLsForever(*bucketName)
+}
+
+// loopOverURLsForever takes a bucketName, pointing to a GCS bucket, and then tries to download the files over and over again until the end of time (waiting an average of 8 hours in between attempts)
+func loopOverURLsForever(bucketName string) {
+	lastDownloadedV4 := 0
+	lastDownloadedV6 := 0
+	ctx := context.Background()
+	timestamp := time.Now().Format("2006/01/02/15:04:05-")
+	for {
+		bkt, err := constructBucketHandle(bucketName)
+		if err != nil {
+			continue
+		}
+		fileStore := &storeGCS{bkt: bkt, ctx: ctx}
+
+		maxmindErr := downloadMaxmindFiles(maxmindURLs, timestamp, fileStore)
+		if maxmindErr != nil {
+			log.Println(maxmindErr)
+		}
+
+		routeviewIPv4Err := downloadRouteviewsFiles("http://data.caida.org/datasets/routing/routeviews-prefix2as/pfx2as-creation.log", "RouteViewIPv4/", &lastDownloadedV4, fileStore)
+		if routeviewIPv4Err != nil {
+			log.Println(routeviewIPv4Err)
+		}
+
+		routeviewIPv6Err := downloadRouteviewsFiles("http://data.caida.org/datasets/routing/routeviews6-prefix2as/pfx2as-creation.log", "RouteViewIPv6/", &lastDownloadedV6, fileStore)
+		if routeviewIPv6Err != nil {
+			log.Println(routeviewIPv6Err)
+		}
+
+		if maxmindErr == nil && routeviewIPv4Err == nil && routeviewIPv6Err == nil {
+			LastSuccessTime.SetToCurrentTime()
+		}
+		time.Sleep(time.Duration(genUniformSleepTime(averageHoursBetweenUpdateChecks, windowForRandomTimeBetweenUpdateChecks)) * time.Hour)
+	}
+}
 
 // downloadMaxmindFiles takes a slice of urls pointing to maxmind files, a timestamp that the user wants attached to the files, and the instance of the store interface where the user wants the files stored. It then downloads the files, stores them, and returns and error on failure or nil on success. Gaurenteed to not introduce duplicates.
 func downloadMaxmindFiles(urls []string, timestamp string, fileStore store) error {
