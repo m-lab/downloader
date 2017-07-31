@@ -5,15 +5,29 @@ import (
 	"errors"
 	"io"
 	"log"
+	"math/rand"
 	"net/http"
+	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
+	"golang.org/x/net/context"
+
+	"cloud.google.com/go/storage"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
 const waitAfterFirstDownloadFailure = time.Minute * time.Duration(1)      // The time (in minutes) to wait before the first retry of a failed download
 const maximumWaitBetweenDownloadAttempts = time.Minute * time.Duration(8) // The maximum time (in minutes) to wait in between download attempts
+const averageHoursBetweenUpdateChecks = 8                                 // The average time (in hours) to wait in between attempts to download files
+const windowForRandomTimeBetweenUpdateChecks = 8                          // The window of time (in hours) to allow a random time to be chosen from.
+
+// urlAndSeqNum is a struct for bundling the Routeview URL and Seqnum together into a single struct. This is the return value of the genRouteviewsURLs function
+type urlAndSeqNum struct {
+	url    string // The URL pointing to the file we need to download
+	seqnum int    // The seqnum of the file, as given in the routeview generation log file
+}
 
 // downloadConfig is a struct for bundling parameters to be passed through runFunctionWithRetry to the download function.
 type downloadConfig struct {
@@ -51,6 +65,43 @@ func downloadMaxmindFiles(urls []string, timestamp string, fileStore store) erro
 	}
 	return lastErr
 
+}
+
+// downloadRouteviewsFiles takes a url pointing to a routeview generation log, a directory prefix that the user wants the files placed in, a pointer to the SeqNum of the last successful download, and the instance of the store interface where the user wants the files stored. It will download the files listed in the log file and is gaurenteed not to introduce duplicates
+func downloadRouteviewsFiles(logFileURL string, directory string, lastDownloaded *int, fileStore store) error {
+	var lastErr error = nil
+	routeViewsURLsAndIDs, err := genRouteViewURLs(logFileURL, *lastDownloaded)
+	if err != nil {
+		return err
+	}
+	for _, urlAndID := range routeViewsURLsAndIDs {
+		dc := downloadConfig{url: urlAndID.url, fileStore: fileStore, prefix: directory, backChars: 8}
+		if err := runFunctionWithRetry(download, dc, waitAfterFirstDownloadFailure, maximumWaitBetweenDownloadAttempts); err != nil {
+			lastErr = err
+			FailedDownloadCount.With(prometheus.Labels{"DownloadType": directory}).Inc()
+		}
+		if lastErr == nil {
+			*lastDownloaded = urlAndID.seqnum
+		}
+	}
+	return lastErr
+
+}
+
+// genSleepTime generatres a random time to sleep (in hours) that is on average, the time given by sleepInterval. It will give a random time in the interval specefied by sleepDeviation (centered around sleepInterval).
+func genUniformSleepTime(sleepInterval float64, sleepDeviation float64) float64 {
+	return (rand.Float64()-0.5)*sleepDeviation + sleepInterval
+}
+
+// constructBucketHandle takes a bucket name and safely loads it, returning either the handle to the bucket or an error
+func constructBucketHandle(bucketName string) (*storage.BucketHandle, error) {
+	ctx, _ := context.WithTimeout(context.Background(), 2*time.Minute)
+	client, err := storage.NewClient(ctx)
+	if err != nil {
+		DownloaderErrorCount.With(prometheus.Labels{"source": "Client Setup"}).Inc()
+		return nil, err
+	}
+	return client.Bucket(bucketName), nil
 }
 
 // download takes a fully populated downloadConfig and downloads the file specefied by the URL, storing it in the store implementation that is passed in, in the directory specefied by the prefix, given the number of extra characters from the URL specified by backChars.
@@ -143,4 +194,46 @@ func checkIfHashIsUniqueInList(md5Hash []byte, fileList []fileObject, fileName s
 		}
 	}
 	return true
+}
+
+// genRouteViewsURLs takes a URL pointing to a routeview log file, and an integer corresponding to the seqnum of the last successful file download. It returns a slice of urlAndSeqNum structs which contain the files that the user needs to download from the routeview webserver.
+func genRouteViewURLs(logFileURL string, lastDownloaded int) ([]urlAndSeqNum, error) {
+	var urlsAndIDs []urlAndSeqNum = nil
+
+	// Compile parser regex
+	re, err := regexp.Compile(`(\d{1,6})\s*(\d{10})\s*(.*)`)
+	if err != nil {
+		RouteviewsURLErrorCount.With(prometheus.Labels{"source": "Regex Compilation Error"}).Inc()
+		return nil, err
+	}
+
+	// Get the generation log file from the routeviews website
+	resp, err := http.Get(logFileURL)
+	if err != nil {
+		RouteviewsURLErrorCount.With(prometheus.Labels{"source": "Couldn't grab the log file from the Routeviews server."}).Inc()
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		RouteviewsURLErrorCount.With(prometheus.Labels{"source": "Webserver gave non-ok response"}).Inc()
+		return nil, errors.New("URL:" + logFileURL + " gave response code " + resp.Status)
+	}
+
+	// Match parse the data we need from the log file
+	responseBodyBuffer := new(bytes.Buffer)
+	responseBodyBuffer.ReadFrom(resp.Body)
+	matches := re.FindAllStringSubmatch(responseBodyBuffer.String(), -1)
+
+	// Check the file to find files with a higher ID number than our last downloaded and add them to the list of files to grab
+	for _, match := range matches {
+		seqNum, err := strconv.Atoi(match[1])
+		if err != nil {
+			RouteviewsURLErrorCount.With(prometheus.Labels{"source": "Regex is matching non-numbers where it should not."}).Inc()
+			continue
+		}
+		if seqNum > lastDownloaded {
+			urlsAndIDs = append(urlsAndIDs, urlAndSeqNum{logFileURL[:strings.LastIndex(logFileURL, "/")+1] + match[3], seqNum})
+		}
+	}
+	return urlsAndIDs, nil
 }
