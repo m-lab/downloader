@@ -22,7 +22,7 @@ env:
     - BUCKET_NAME_BOX=maxmind-feed-sandbox
     - PROJECT_NAME_STG=mlab-staging
     - CLUSTER_NAME_STG=downloader
-    - BUCKET_NAME_STG=what-bucket-should-we-use-for-staging
+    - BUCKET_NAME_STG=downloader-feed-mlab-staging
     - PROJECT_NAME_PRD=mlab-oti
     - CLUSTER_NAME_PRD=downloader
     - BUCKET_NAME_PRD=what-bucket-should-we-use-for-production
