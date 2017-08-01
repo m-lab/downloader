@@ -78,7 +78,7 @@ func downloadRouteviewsFiles(logFileURL string, directory string, lastDownloaded
 		dc := downloadConfig{url: urlAndID.url, fileStore: fileStore, prefix: directory, backChars: 8}
 		if err := runFunctionWithRetry(download, dc, waitAfterFirstDownloadFailure, maximumWaitBetweenDownloadAttempts); err != nil {
 			lastErr = err
-			FailedDownloadCount.With(prometheus.Labels{"DownloadType": directory}).Inc()
+			FailedDownloadCount.With(prometheus.Labels{"download_type": directory}).Inc()
 		}
 		if lastErr == nil {
 			*lastDownloaded = urlAndID.seqnum
