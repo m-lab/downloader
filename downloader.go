@@ -102,10 +102,6 @@ func download(config interface{}) (error, bool) {
 	if !ok {
 		return errors.New("WRONG TYPE!!"), true
 	}
-	// Get a handle on our object in GCS where we will store the file
-	filename := dc.url[strings.LastIndex(dc.url, "/")+1-dc.backChars:]
-	obj := dc.fileStore.getFile(dc.prefix + filename)
-	w := obj.getWriter()
 
 	// Grab the file from the website
 	resp, err := http.Get(dc.url)
@@ -113,12 +109,17 @@ func download(config interface{}) (error, bool) {
 		DownloaderErrorCount.With(prometheus.Labels{"source": "Web Get"}).Inc()
 		return err, false
 	}
-
+	// Ensure that the webserver thinks our file request was okay
 	if resp.StatusCode != http.StatusOK {
 		DownloaderErrorCount.With(prometheus.Labels{"source": "Webserver gave non-ok response"}).Inc()
 		resp.Body.Close()
 		return errors.New("URL:" + dc.url + " gave response code " + resp.Status), false
 	}
+
+	// Get a handle on our object in GCS where we will store the file
+	filename := dc.url[strings.LastIndex(dc.url, "/")+1-dc.backChars:]
+	obj := dc.fileStore.getFile(dc.prefix + filename)
+	w := obj.getWriter()
 
 	// Move the file into GCS
 	if _, err = io.Copy(w, resp.Body); err != nil {
