@@ -37,49 +37,6 @@ var maxmindURLs []string = []string{
 	"http://geolite.maxmind.com/download/geoip/database/GeoIPv6.csv.gz",
 }
 
-//These vars are the prometheus metrics
-var (
-	// Always set to the last time we had a successful download of ALL files
-	// Provides metrics:
-	//    downloader_last_success_time_seconds
-	// Example usage:
-	//    LastSuccessTime.Inc()
-	LastSuccessTime = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "downloader_last_success_time_seconds",
-		Help: "The time that ALL the downloads last completed successfully.",
-	})
-
-	// Measures the number of downloads that have failed completely
-	// Provides metrics:
-	//    downloader_download_failed_count
-	// Example usage:
-	//    FailedDownloadCount.Inc()
-	FailedDownloadCount = prometheus.NewCounterVec(prometheus.CounterOpts{
-		Name: "downloader_download_failed_count",
-		Help: "Increments every time a download maxes out our number of retries.",
-	}, []string{"download_type"})
-
-	// Measures the number of downloader errors
-	// Provides metrics:
-	//    downloader_error_count
-	// Example usage:
-	//    DownloaderErrorCount.Inc()
-	DownloaderErrorCount = prometheus.NewCounterVec(prometheus.CounterOpts{
-		Name: "downloader_error_count",
-		Help: "The current number of unresolved errors encountered while attemting to download the latest maxmind and routeviews data.",
-	}, []string{"source"})
-
-	// Measures the number of errors involved with getting the list of routeview files
-	// Provides metrics:
-	//    downloader_downloader_routeviews_url_error_count
-	// Example usage:
-	//    RouteviewsURLErrorCount.Inc()
-	RouteviewsURLErrorCount = prometheus.NewCounterVec(prometheus.CounterOpts{
-		Name: "downloader_downloader_routeviews_url_error_count",
-		Help: "The number of erros that occured with retrieving the Routeviews URL list.",
-	}, []string{"source"})
-)
-
 func main() {}
 
 // downloadMaxmindFiles takes a slice of urls pointing to maxmind files, a timestamp that the user wants attached to the files, and the instance of the store interface where the user wants the files stored. It then downloads the files, stores them, and returns and error on failure or nil on success. Gaurenteed to not introduce duplicates.

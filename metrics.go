@@ -7,8 +7,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
-func main() {}
-
 //These vars are the prometheus metrics
 var (
 	// Always set to the last time we had a successful download of ALL files
