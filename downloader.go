@@ -125,14 +125,13 @@ func main() {
 func loopOverURLsForever(bucketName string) {
 	lastDownloadedV4 := 0
 	lastDownloadedV6 := 0
-	ctx := context.Background()
 	for {
 		timestamp := time.Now().Format("2006/01/02/15:04:05-")
 		bkt, err := constructBucketHandle(bucketName)
 		if err != nil {
 			continue
 		}
-		fileStore := &storeGCS{bkt: bkt, ctx: ctx}
+		fileStore := &storeGCS{bkt: bkt}
 
 		maxmindErr := downloadMaxmindFiles(maxmindURLs, timestamp, fileStore)
 		if maxmindErr != nil {
