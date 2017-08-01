@@ -45,7 +45,7 @@ var (
 	// Example usage:
 	//    LastSuccessTime.Inc()
 	LastSuccessTime = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "downloader_last_successful_time",
+		Name: "downloader_last_success_time_seconds",
 		Help: "The time that ALL the downloads last completed successfully.",
 	})
 
