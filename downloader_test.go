@@ -6,12 +6,9 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"reflect"
 	"strings"
 	"testing"
 	"time"
-
-	"cloud.google.com/go/storage"
 )
 
 func Test_downloadMaxmindFiles(t *testing.T) {
@@ -267,6 +264,7 @@ func Test_determineIfFileIsNew(t *testing.T) {
 
 }
 
+/*
 func Test_getHashOfFile(t *testing.T) {
 	tests := []obj{
 		{
@@ -287,76 +285,76 @@ func Test_getHashOfFile(t *testing.T) {
 		}
 	}
 
-}
+}*/
 
 func Test_checkIfHashIsUniqueInList(t *testing.T) {
 	tests := []struct {
 		md5      []byte
-		iter     []fileAttributes
+		iter     []fileObject
 		filename string
 		res      bool
 	}{
 		{
 			md5: []byte("cow"),
-			iter: []fileAttributes{
-				&fileAttributesGCS{&storage.ObjectAttrs{Name: "Dinkleberg", MD5: []byte("Dinkleberg")}},
+			iter: []fileObject{
+				obj{name: "Dinkleberg", md5: []byte("Dinkleberg")},
 			},
 			filename: "Unit testing1",
 			res:      true,
 		},
 		{
 			md5:      []byte("cow"),
-			iter:     []fileAttributes{},
+			iter:     []fileObject{},
 			filename: "Unit testing2",
 			res:      true,
 		},
 		{
 			md5: []byte("cow"),
-			iter: []fileAttributes{
-				&fileAttributesGCS{&storage.ObjectAttrs{Name: "Unit testing3", MD5: []byte("cow")}},
+			iter: []fileObject{
+				obj{name: "Unit testing3", md5: []byte("cow")},
 			},
 			filename: "Unit testing3",
 			res:      true,
 		},
 		{
 			md5: []byte("cow"),
-			iter: []fileAttributes{
-				&fileAttributesGCS{&storage.ObjectAttrs{Name: "Dinkleberg", MD5: []byte("cow")}},
+			iter: []fileObject{
+				obj{name: "Dinkleberg", md5: []byte("cow")},
 			},
 			filename: "Unit testing4",
 			res:      false,
 		},
 		{
 			md5: []byte("cow"),
-			iter: []fileAttributes{
-				&fileAttributesGCS{&storage.ObjectAttrs{Name: "Dinkleberg", MD5: []byte("Dinkleberg")}},
-				&fileAttributesGCS{&storage.ObjectAttrs{Name: "Unit testing5", MD5: []byte("cow")}},
+			iter: []fileObject{
+				obj{name: "Dinkleberg", md5: []byte("Dinkleberg")},
+				obj{name: "Unit testing5", md5: []byte("cow")},
 			},
 			filename: "Unit testing5",
 			res:      true,
 		},
 		{
 			md5: []byte("cow"),
-			iter: []fileAttributes{
-				&fileAttributesGCS{&storage.ObjectAttrs{Name: "Dinkleberg", MD5: []byte("Dinkleberg")}},
-				&fileAttributesGCS{&storage.ObjectAttrs{Name: "Unit te5", MD5: []byte("cw")}},
-				&fileAttributesGCS{&storage.ObjectAttrs{Name: "Dieberg", MD5: []byte("Dinrg")}},
-				&fileAttributesGCS{&storage.ObjectAttrs{Name: "Unit test", MD5: []byte("ow")}},
-				&fileAttributesGCS{&storage.ObjectAttrs{Name: "Dinkg", MD5: []byte("Din")}},
-				&fileAttributesGCS{&storage.ObjectAttrs{Name: "Ung5", MD5: []byte("c")}},
+			iter: []fileObject{
+				obj{name: "Dinkleberg", md5: []byte("Dinkleberg")},
+				obj{name: "Unit te5", md5: []byte("cw")},
+				obj{name: "Dieberg", md5: []byte("Dinrg")},
+				obj{name: "Unit test", md5: []byte("ow")},
+				obj{name: "Dinkg", md5: []byte("Din")},
+				obj{name: "Ung5", md5: []byte("c")},
 			},
 			filename: "Unit testing6",
 			res:      true,
 		},
 		{
 			md5: []byte("cow"),
-			iter: []fileAttributes{
-				&fileAttributesGCS{&storage.ObjectAttrs{Name: "Dinkleberg", MD5: []byte("Dinkleberg")}},
-				&fileAttributesGCS{&storage.ObjectAttrs{Name: "Unit te5", MD5: []byte("cow")}},
-				&fileAttributesGCS{&storage.ObjectAttrs{Name: "Dieberg", MD5: []byte("Dinrg")}},
-				&fileAttributesGCS{&storage.ObjectAttrs{Name: "Unit test", MD5: []byte("ow")}},
-				&fileAttributesGCS{&storage.ObjectAttrs{Name: "Dinkg", MD5: []byte("Din")}},
-				&fileAttributesGCS{&storage.ObjectAttrs{Name: "Ung5", MD5: []byte("c")}},
+			iter: []fileObject{
+				obj{name: "Dinkleberg", md5: []byte("Dinkleberg")},
+				obj{name: "Unit te5", md5: []byte("cow")},
+				obj{name: "Dieberg", md5: []byte("Dinrg")},
+				obj{name: "Unit test", md5: []byte("ow")},
+				obj{name: "Dinkg", md5: []byte("Din")},
+				obj{name: "Ung5", md5: []byte("c")},
 			},
 			filename: "Unit testing7",
 			res:      false,

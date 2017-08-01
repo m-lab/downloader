@@ -157,7 +157,7 @@ func runFunctionWithRetry(function func(interface{}) (error, bool), config inter
 
 // determineIfFileIsNew takes an implementation of the store interface, a filename, and a search dir and determines if any of the files in the search dir are duplicates of the file given by filename. If there is a duplicate then the file is not new and it returns false. If there is not duplicate (or if we are unsure, just to be safe) we return true, indicating that the file is new and should be kept.
 func determineIfFileIsNew(fileStore store, fileName string, searchDir string) bool {
-	md5Hash, err := getHashOfFile(fileStore.getFile(fileName))
+	md5Hash, err := fileStore.getFile(fileName).getMD5()
 	if err != nil {
 		log.Println(err)
 		return true
@@ -166,24 +166,22 @@ func determineIfFileIsNew(fileStore store, fileName string, searchDir string) bo
 	return checkIfHashIsUniqueInList(md5Hash, objects, fileName)
 }
 
-// getHashOfGCSFile takes an implementation of the fileObject interface and returns the MD5 hash of that fileObject, or an error if we cannot get the hash
-func getHashOfFile(obj fileObject) ([]byte, error) {
-	attrs, err := obj.getAttrs()
-	if err != nil {
-		DownloaderErrorCount.With(prometheus.Labels{"source": "Couldn't get GCS File Attributes for hash generation"}).Inc()
-		return nil, err
-	}
-	return attrs.getMD5(), nil
-}
-
 // checkIfHashIsUniqueInList takes an MD5 hash, a slice of fileAttributes, and a filename corresponding to the MD5 hash. It will return false if it finds another file in the slice with a matching MD5 and a different filename. Otherwise, it will return true.
-func checkIfHashIsUniqueInList(md5Hash []byte, fileAttrsList []fileAttributes, fileName string) bool {
-	if fileAttrsList == nil {
+func checkIfHashIsUniqueInList(md5Hash []byte, fileList []fileObject, fileName string) bool {
+	if fileList == nil {
 		DownloaderErrorCount.With(prometheus.Labels{"source": "Couldn't get list of other files in directory"}).Inc()
 		return true
 	}
-	for _, otherFile := range fileAttrsList {
-		if bytes.Equal(otherFile.getMD5(), md5Hash) && otherFile.getName() != fileName {
+	for _, otherFile := range fileList {
+		otherMD5, err := otherFile.getMD5()
+		if err != nil {
+			return true
+		}
+		otherName, err := otherFile.getName()
+		if err != nil {
+			return true
+		}
+		if bytes.Equal(otherMD5, md5Hash) && otherName != fileName {
 			return false
 		}
 	}
