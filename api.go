@@ -18,41 +18,35 @@ const contextTimeout time.Duration = 2 * time.Minute
 
 type store interface {
 	getFile(name string) fileObject
-	getFiles(prefix string) []fileAttributes
+	getFiles(prefix string) []fileObject
 }
 
 type fileObject interface {
 	getWriter() io.WriteCloser
-	getReader() (io.ReadCloser, error)
 	deleteFile() error
-	getAttrs() (fileAttributes, error)
-}
-
-type fileAttributes interface {
-	getName() string
-	getMD5() []byte
+	getName() (string, error)
+	getMD5() ([]byte, error)
 }
 
 //// actual implementation of store
 
 type storeGCS struct {
 	bkt *storage.BucketHandle
-	ctx context.Context
 }
 
 func (store *storeGCS) getFile(name string) fileObject {
-	return &fileObjectGCS{obj: store.bkt.Object(name), ctx: store.ctx}
+	return &fileObjectGCS{obj: store.bkt.Object(name)}
 }
 
-func (store *storeGCS) getFiles(prefix string) []fileAttributes {
-	ctx, _ := context.WithTimeout(store.ctx, contextTimeout)
+func (store *storeGCS) getFiles(prefix string) []fileObject {
+	ctx, _ := context.WithTimeout(context.Background(), contextTimeout)
 	objects := store.bkt.Objects(ctx, &storage.Query{"", prefix, false})
-	var attrs []fileAttributes = nil
+	var attrs []fileObject = nil
 	for object, err := objects.Next(); err != iterator.Done; object, err = objects.Next() {
 		if err != nil {
 			DownloaderErrorCount.With(prometheus.Labels{"source": "Unkown Error in iterator in checkIfHashIsUniqueInList"}).Inc()
 		}
-		attrs = append(attrs, &fileAttributesGCS{object})
+		attrs = append(attrs, store.getFile(object.Name))
 	}
 	return attrs
 
@@ -61,42 +55,36 @@ func (store *storeGCS) getFiles(prefix string) []fileAttributes {
 //// actual implementation of fileObject
 type fileObjectGCS struct {
 	obj *storage.ObjectHandle
-	ctx context.Context
 }
 
 func (file *fileObjectGCS) getWriter() io.WriteCloser {
-	ctx, _ := context.WithTimeout(file.ctx, contextTimeout)
+	ctx, _ := context.WithTimeout(context.Background(), contextTimeout)
 	return file.obj.NewWriter(ctx)
 }
 
-func (file *fileObjectGCS) getReader() (io.ReadCloser, error) {
-	ctx, _ := context.WithTimeout(file.ctx, contextTimeout)
-	return file.obj.NewReader(ctx)
-}
-
 func (file *fileObjectGCS) deleteFile() error {
-	ctx, _ := context.WithTimeout(file.ctx, contextTimeout)
+	ctx, _ := context.WithTimeout(context.Background(), contextTimeout)
 	return file.obj.Delete(ctx)
 }
 
-func (file *fileObjectGCS) getAttrs() (fileAttributes, error) {
-	ctx, _ := context.WithTimeout(file.ctx, contextTimeout)
-	attr, err := file.obj.Attrs(ctx)
-	return &fileAttributesGCS{attr}, err
+func (file *fileObjectGCS) getName() (string, error) {
+	ctx, _ := context.WithTimeout(context.Background(), contextTimeout)
+	attrs, err := file.obj.Attrs(ctx)
+	if err != nil {
+		DownloaderErrorCount.With(prometheus.Labels{"source": "Couldn't get GCS File Attributes for filename generation"}).Inc()
+		return "", err
+	}
+	return attrs.Name, nil
 }
 
-//// actual implementation of fileAttributes
-
-type fileAttributesGCS struct {
-	attrs *storage.ObjectAttrs
-}
-
-func (fileAttr *fileAttributesGCS) getName() string {
-	return fileAttr.attrs.Name
-}
-
-func (fileAttr *fileAttributesGCS) getMD5() []byte {
-	return fileAttr.attrs.MD5
+func (file *fileObjectGCS) getMD5() ([]byte, error) {
+	ctx, _ := context.WithTimeout(context.Background(), contextTimeout)
+	attrs, err := file.obj.Attrs(ctx)
+	if err != nil {
+		DownloaderErrorCount.With(prometheus.Labels{"source": "Couldn't get GCS File Attributes for hash generation"}).Inc()
+		return nil, err
+	}
+	return attrs.MD5, nil
 }
 
 //// implementation of API purely for testing purposes
@@ -113,8 +101,8 @@ func (fsto *testStore) getFile(name string) fileObject {
 	return obj{name: name, md5: nil, data: bytes.NewBuffer(nil), fsto: fsto}
 }
 
-func (fsto *testStore) getFiles(prefix string) []fileAttributes {
-	var attrSlice []fileAttributes = nil
+func (fsto *testStore) getFiles(prefix string) []fileObject {
+	var attrSlice []fileObject = nil
 	for key, object := range fsto.files {
 		if strings.HasPrefix(key, prefix) {
 			attrSlice = append(attrSlice, object)
@@ -136,19 +124,11 @@ func (file obj) getWriter() io.WriteCloser {
 	return file
 }
 
-func (file obj) getReader() (io.ReadCloser, error) {
-	return file, nil
-}
-
 func (file obj) Write(p []byte) (n int, err error) {
 	if strings.HasSuffix(file.name, "copyFail") {
 		return 0, errors.New("Example Copy Error")
 	}
 	return file.data.Write(p)
-}
-
-func (file obj) Read(p []byte) (n int, err error) {
-	return file.data.Read(p)
 }
 
 func (file obj) Close() error {
@@ -164,18 +144,17 @@ func (file obj) deleteFile() error {
 	return nil
 }
 
-func (o obj) getAttrs() (fileAttributes, error) {
-	if o.md5 != nil {
-		return o, nil
+func (file obj) getName() (string, error) {
+	if file.md5 != nil {
+		return file.name, nil
+	}
+	return "", errors.New("Expected Error Output")
+}
+func (file obj) getMD5() ([]byte, error) {
+	if file.md5 != nil {
+		return file.md5, nil
 	}
 	return nil, errors.New("Expected Error Output")
-}
-
-func (file obj) getName() string {
-	return file.name
-}
-func (file obj) getMD5() []byte {
-	return file.md5
 }
 
 //// End of stubs for testing
