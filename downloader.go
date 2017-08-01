@@ -41,41 +41,41 @@ var maxmindURLs []string = []string{
 var (
 	// Always set to the last time we had a successful download of ALL files
 	// Provides metrics:
-	//    downloader_Last_Successful_Time
+	//    downloader_last_successful_time
 	// Example usage:
 	//    LastSuccessTime.Inc()
 	LastSuccessTime = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "downloader_Last_Successful_Time",
+		Name: "downloader_last_successful_time",
 		Help: "The time that ALL the downloads last completed successfully.",
 	})
 
 	// Measures the number of downloads that have failed completely
 	// Provides metrics:
-	//    downloader_Download_Failed
+	//    downloader_download_failed
 	// Example usage:
 	//    FailedDownloadCount.Inc()
 	FailedDownloadCount = prometheus.NewCounterVec(prometheus.CounterOpts{
-		Name: "downloader_Download_Failed",
+		Name: "downloader_download_failed",
 		Help: "Increments every time a download maxes out our number of retries.",
 	}, []string{"DownloadType"})
 
 	// Measures the number of downloader errors
 	// Provides metrics:
-	//    downloader_Error_Count
+	//    downloader_error_count
 	// Example usage:
 	//    DownloaderErrorCount.Inc()
 	DownloaderErrorCount = prometheus.NewCounterVec(prometheus.CounterOpts{
-		Name: "downloader_Error_Count",
+		Name: "downloader_error_count",
 		Help: "The current number of unresolved errors encountered while attemting to download the latest maxmind and routeviews data.",
 	}, []string{"source"})
 
 	// Measures the number of errors involved with getting the list of routeview files
 	// Provides metrics:
-	//    downloader_Downloader_Routeviews_URL_Error_Count
+	//    downloader_downloader_routeviews_url_error_count
 	// Example usage:
 	//    RouteviewsURLErrorCount.Inc()
 	RouteviewsURLErrorCount = prometheus.NewCounterVec(prometheus.CounterOpts{
-		Name: "downloader_Downloader_Routeviews_URL_Error_Count",
+		Name: "downloader_downloader_routeviews_url_error_count",
 		Help: "The number of erros that occured with retrieving the Routeviews URL list.",
 	}, []string{"source"})
 )
