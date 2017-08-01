@@ -67,13 +67,13 @@ var (
 
 	// Measures the number of downloads that have failed completely
 	// Provides metrics:
-	//    downloader_download_failed
+	//    downloader_download_failed_count
 	// Example usage:
 	//    FailedDownloadCount.Inc()
 	FailedDownloadCount = prometheus.NewCounterVec(prometheus.CounterOpts{
-		Name: "downloader_download_failed",
+		Name: "downloader_download_failed_count",
 		Help: "Increments every time a download maxes out our number of retries.",
-	}, []string{"DownloadType"})
+	}, []string{"download_type"})
 
 	// Measures the number of downloader errors
 	// Provides metrics:
@@ -162,7 +162,7 @@ func downloadMaxmindFiles(urls []string, timestamp string, fileStore store) erro
 		dc := downloadConfig{url: url, fileStore: fileStore, prefix: "Maxmind/" + timestamp, backChars: 0}
 		if err := runFunctionWithRetry(download, dc, waitAfterFirstDownloadFailure, maximumWaitBetweenDownloadAttempts); err != nil {
 			lastErr = err
-			FailedDownloadCount.With(prometheus.Labels{"DownloadType": "Maxmind"}).Inc()
+			FailedDownloadCount.With(prometheus.Labels{"download_type": "Maxmind"}).Inc()
 		}
 	}
 	return lastErr
@@ -180,7 +180,7 @@ func downloadRouteviewsFiles(logFileURL string, directory string, lastDownloaded
 		dc := downloadConfig{url: urlAndID.url, fileStore: fileStore, prefix: directory, backChars: 8}
 		if err := runFunctionWithRetry(download, dc, waitAfterFirstDownloadFailure, maximumWaitBetweenDownloadAttempts); err != nil {
 			lastErr = err
-			FailedDownloadCount.With(prometheus.Labels{"DownloadType": directory}).Inc()
+			FailedDownloadCount.With(prometheus.Labels{"download_type": directory}).Inc()
 		}
 		if lastErr == nil {
 			*lastDownloaded = urlAndID.seqnum
