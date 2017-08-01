@@ -41,7 +41,7 @@ var maxmindURLs []string = []string{
 var (
 	// Always set to the last time we had a successful download of ALL files
 	// Provides metrics:
-	//    downloader_last_successful_time
+	//    downloader_last_success_time_seconds
 	// Example usage:
 	//    LastSuccessTime.Inc()
 	LastSuccessTime = prometheus.NewGauge(prometheus.GaugeOpts{
