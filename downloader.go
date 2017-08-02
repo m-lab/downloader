@@ -15,6 +15,7 @@ import (
 	"golang.org/x/net/context"
 
 	"cloud.google.com/go/storage"
+	"github.com/m-lab/downloader/metrics"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -68,17 +69,17 @@ func downloadMaxmindFiles(urls []string, timestamp string, store fileStore) erro
 }
 
 // downloadRouteviewsFiles takes a url pointing to a routeview generation log, a directory prefix that the user wants the files placed in, a pointer to the SeqNum of the last successful download, and the instance of the store interface where the user wants the files stored. It will download the files listed in the log file and is gaurenteed not to introduce duplicates
-func downloadRouteviewsFiles(logFileURL string, directory string, lastDownloaded *int, fileStore store) error {
+func downloadRouteviewsFiles(logFileURL string, directory string, lastDownloaded *int, store fileStore) error {
 	var lastErr error = nil
 	routeViewsURLsAndIDs, err := genRouteViewURLs(logFileURL, *lastDownloaded)
 	if err != nil {
 		return err
 	}
 	for _, urlAndID := range routeViewsURLsAndIDs {
-		dc := downloadConfig{url: urlAndID.url, fileStore: fileStore, prefix: directory, backChars: 8}
+		dc := downloadConfig{url: urlAndID.url, store: store, prefix: directory, backChars: 8}
 		if err := runFunctionWithRetry(download, dc, waitAfterFirstDownloadFailure, maximumWaitBetweenDownloadAttempts); err != nil {
 			lastErr = err
-			FailedDownloadCount.With(prometheus.Labels{"download_type": directory}).Inc()
+			metrics.FailedDownloadCount.With(prometheus.Labels{"download_type": directory}).Inc()
 		}
 		if lastErr == nil {
 			*lastDownloaded = urlAndID.seqnum
@@ -98,7 +99,7 @@ func constructBucketHandle(bucketName string) (*storage.BucketHandle, error) {
 	ctx, _ := context.WithTimeout(context.Background(), 2*time.Minute)
 	client, err := storage.NewClient(ctx)
 	if err != nil {
-		DownloaderErrorCount.With(prometheus.Labels{"source": "Client Setup"}).Inc()
+		metrics.DownloaderErrorCount.With(prometheus.Labels{"source": "Client Setup"}).Inc()
 		return nil, err
 	}
 	return client.Bucket(bucketName), nil
@@ -191,19 +192,19 @@ func genRouteViewURLs(logFileURL string, lastDownloaded int) ([]urlAndSeqNum, er
 	// Compile parser regex
 	re, err := regexp.Compile(`(\d{1,6})\s*(\d{10})\s*(.*)`)
 	if err != nil {
-		RouteviewsURLErrorCount.With(prometheus.Labels{"source": "Regex Compilation Error"}).Inc()
+		metrics.RouteviewsURLErrorCount.With(prometheus.Labels{"source": "Regex Compilation Error"}).Inc()
 		return nil, err
 	}
 
 	// Get the generation log file from the routeviews website
 	resp, err := http.Get(logFileURL)
 	if err != nil {
-		RouteviewsURLErrorCount.With(prometheus.Labels{"source": "Couldn't grab the log file from the Routeviews server."}).Inc()
+		metrics.RouteviewsURLErrorCount.With(prometheus.Labels{"source": "Couldn't grab the log file from the Routeviews server."}).Inc()
 		return nil, err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		RouteviewsURLErrorCount.With(prometheus.Labels{"source": "Webserver gave non-ok response"}).Inc()
+		metrics.RouteviewsURLErrorCount.With(prometheus.Labels{"source": "Webserver gave non-ok response"}).Inc()
 		return nil, errors.New("URL:" + logFileURL + " gave response code " + resp.Status)
 	}
 
@@ -216,7 +217,7 @@ func genRouteViewURLs(logFileURL string, lastDownloaded int) ([]urlAndSeqNum, er
 	for _, match := range matches {
 		seqNum, err := strconv.Atoi(match[1])
 		if err != nil {
-			RouteviewsURLErrorCount.With(prometheus.Labels{"source": "Regex is matching non-numbers where it should not."}).Inc()
+			metrics.RouteviewsURLErrorCount.With(prometheus.Labels{"source": "Regex is matching non-numbers where it should not."}).Inc()
 			continue
 		}
 		if seqNum > lastDownloaded {

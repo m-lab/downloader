@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"io"
 	"math/rand"
 	"net/http"
 	"net/http/httptest"
@@ -115,7 +116,7 @@ func Test_downloadRouteviewsFiles(t *testing.T) {
 		dir     string
 		lastD   int
 		lastS   int
-		fsto    store
+		fsto    fileStore
 		res     error
 	}{
 		{
@@ -123,7 +124,7 @@ func Test_downloadRouteviewsFiles(t *testing.T) {
 			dir:     "test1/",
 			lastD:   0,
 			lastS:   3365,
-			fsto:    &testStore{map[string]obj{}},
+			fsto:    &testStore{map[string]testFileObject{}},
 			res:     nil,
 		},
 		{
@@ -131,7 +132,7 @@ func Test_downloadRouteviewsFiles(t *testing.T) {
 			dir:     "test2/",
 			lastD:   0,
 			lastS:   3364,
-			fsto:    &testStore{map[string]obj{}},
+			fsto:    &testStore{map[string]testFileObject{}},
 			res:     errors.New(""),
 		},
 		{
@@ -139,7 +140,7 @@ func Test_downloadRouteviewsFiles(t *testing.T) {
 			dir:     "test3/",
 			lastD:   0,
 			lastS:   0,
-			fsto:    &testStore{map[string]obj{}},
+			fsto:    &testStore{map[string]testFileObject{}},
 			res:     errors.New(""),
 		},
 	}
