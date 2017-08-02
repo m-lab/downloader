@@ -1,3 +1,7 @@
+// The metrics package defines a set of metrics for
+// monitoring the downloader and provides a function
+// to initialize those metrics on the /metrics path
+
 package metrics
 
 import (
@@ -51,7 +55,7 @@ var (
 )
 
 // setupPrometheus takes no arguments and sets up prometheus metrics for the package
-func setupPrometheus() {
+func SetupPrometheus() {
 	http.Handle("/metrics", promhttp.Handler())
 	prometheus.MustRegister(LastSuccessTime)
 	prometheus.MustRegister(FailedDownloadCount)
