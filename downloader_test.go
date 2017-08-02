@@ -13,6 +13,65 @@ import (
 	"time"
 )
 
+//// implementation of API purely for testing purposes
+
+//// testStore implements the store interface for testing
+type testStore struct {
+	files map[string]testFileObject
+}
+
+func (fsto *testStore) getFile(name string) fileObject {
+	if file, ok := fsto.files[name]; ok {
+		return file
+	}
+	return testFileObject{name: name, md5: nil, data: bytes.NewBuffer(nil), fsto: fsto}
+}
+
+func (fsto *testStore) namesToMD5(prefix string) map[string][]byte {
+	var attrMap map[string][]byte = make(map[string][]byte)
+	for key, object := range fsto.files {
+		if strings.HasPrefix(key, prefix) {
+			attrMap[key] = object.md5
+		}
+	}
+	return attrMap
+
+}
+
+//// Obj struct implements both the attrs and the object interfaces for testing
+type testFileObject struct {
+	name string
+	md5  []byte
+	data *bytes.Buffer
+	fsto *testStore
+}
+
+func (file testFileObject) getWriter() io.WriteCloser {
+	return file
+}
+
+func (file testFileObject) Write(p []byte) (n int, err error) {
+	if strings.HasSuffix(file.name, "copyFail") {
+		return 0, errors.New("Example Copy Error")
+	}
+	return file.data.Write(p)
+}
+
+func (file testFileObject) Close() error {
+	file.md5 = []byte("NEW FILE")
+	file.fsto.files[file.name] = file
+	return nil
+}
+
+func (file testFileObject) deleteFile() error {
+	if strings.HasSuffix(file.name, "deleteFail") {
+		return errors.New("Couldn't delete file!")
+	}
+	return nil
+}
+
+//// End of stubs for testing
+
 func Test_downloadMaxmindFiles(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, r.URL.String())
@@ -20,7 +79,7 @@ func Test_downloadMaxmindFiles(t *testing.T) {
 	tests := []struct {
 		urls      []string
 		timestamp string
-		fsto      store
+		fsto      fileStore
 		res       error
 	}{
 		{
@@ -28,7 +87,7 @@ func Test_downloadMaxmindFiles(t *testing.T) {
 				ts.URL + "/filename",
 			},
 			timestamp: "2006/01/02/15:04:05-",
-			fsto:      &testStore{map[string]obj{}},
+			fsto:      &testStore{map[string]testFileObject{}},
 			res:       nil,
 		},
 		{
@@ -37,7 +96,7 @@ func Test_downloadMaxmindFiles(t *testing.T) {
 				ts.URL + "/deleteFail",
 			},
 			timestamp: "2006/01/02/15:04:05-",
-			fsto:      &testStore{map[string]obj{}},
+			fsto:      &testStore{map[string]testFileObject{}},
 			res:       errors.New(""),
 		},
 	}
@@ -163,7 +222,7 @@ func Test_download(t *testing.T) {
 		{
 			dc: downloadConfig{
 				url:       "Fill me",
-				fileStore: &testStore{map[string]obj{}},
+				store:     &testStore{map[string]testFileObject{}},
 				prefix:    "pre/",
 				backChars: 0,
 			},
@@ -174,7 +233,7 @@ func Test_download(t *testing.T) {
 		{
 			dc: downloadConfig{
 				url:       "Fill me",
-				fileStore: &testStore{map[string]obj{}},
+				store:     &testStore{map[string]testFileObject{}},
 				prefix:    "pre/",
 				backChars: 0,
 			},
@@ -185,7 +244,7 @@ func Test_download(t *testing.T) {
 		{
 			dc: downloadConfig{
 				url:       "Fill me",
-				fileStore: &testStore{map[string]obj{}},
+				store:     &testStore{map[string]testFileObject{}},
 				prefix:    "pre/",
 				backChars: 0,
 			},
@@ -196,8 +255,8 @@ func Test_download(t *testing.T) {
 		{
 			dc: downloadConfig{
 				url: "Fill me",
-				fileStore: &testStore{map[string]obj{
-					"pre/file.del/dup": obj{name: "pre/file.del/dup", data: bytes.NewBuffer(nil), md5: []byte("NEW FILE")},
+				store: &testStore{map[string]testFileObject{
+					"pre/file.del/dup": testFileObject{name: "pre/file.del/dup", data: bytes.NewBuffer(nil), md5: []byte("NEW FILE")},
 				}},
 				prefix:    "pre/",
 				backChars: 0,
@@ -209,7 +268,7 @@ func Test_download(t *testing.T) {
 		{
 			dc: downloadConfig{
 				url:       "Fill me",
-				fileStore: &testStore{map[string]obj{}},
+				store:     &testStore{map[string]testFileObject{}},
 				prefix:    "pre/",
 				backChars: 0,
 			},
@@ -308,52 +367,52 @@ func Test_determineIfFileIsNew(t *testing.T) {
 		res       bool
 	}{
 		{
-			fs: &testStore{map[string]obj{
-				"search/unique":     obj{name: "search/unique", data: nil, md5: []byte("123")},
-				"search/thing":      obj{name: "search/thing", data: nil, md5: []byte("000")},
-				"search/stuff":      obj{name: "search/stuff", data: nil, md5: []byte("765")},
-				"otherDir/ignoreMe": obj{name: "otherDir/ignoreMe", data: nil, md5: []byte("123")},
+			fs: &testStore{map[string]testFileObject{
+				"search/unique":     testFileObject{name: "search/unique", data: nil, md5: []byte("123")},
+				"search/thing":      testFileObject{name: "search/thing", data: nil, md5: []byte("000")},
+				"search/stuff":      testFileObject{name: "search/stuff", data: nil, md5: []byte("765")},
+				"otherDir/ignoreMe": testFileObject{name: "otherDir/ignoreMe", data: nil, md5: []byte("123")},
 			}},
 			directory: "search/",
 			filename:  "search/unique",
 			res:       true,
 		},
 		{
-			fs: &testStore{map[string]obj{
-				"search/unique":     obj{name: "search/unique", data: nil, md5: []byte("123")},
-				"search/thing":      obj{name: "search/thing", data: nil, md5: []byte("000")},
-				"search/stuff":      obj{name: "search/stuff", data: nil, md5: []byte("123")},
-				"otherDir/ignoreMe": obj{name: "otherDir/ignoreMe", data: nil, md5: []byte("765")},
+			fs: &testStore{map[string]testFileObject{
+				"search/unique":     testFileObject{name: "search/unique", data: nil, md5: []byte("123")},
+				"search/thing":      testFileObject{name: "search/thing", data: nil, md5: []byte("000")},
+				"search/stuff":      testFileObject{name: "search/stuff", data: nil, md5: []byte("123")},
+				"otherDir/ignoreMe": testFileObject{name: "otherDir/ignoreMe", data: nil, md5: []byte("765")},
 			}},
 			directory: "search/",
 			filename:  "search/unique",
 			res:       false,
 		},
 		{
-			fs: &testStore{map[string]obj{
-				"search/unique":     obj{name: "search/unique", data: nil, md5: []byte("123")},
-				"search/thing":      obj{name: "search/thing", data: nil, md5: []byte("000")},
-				"search/stuff":      obj{name: "search/stuff", data: nil, md5: []byte("765")},
-				"otherDir/ignoreMe": obj{name: "otherDir/ignoreMe", data: nil, md5: []byte("123")},
+			fs: &testStore{map[string]testFileObject{
+				"search/unique":     testFileObject{name: "search/unique", data: nil, md5: []byte("123")},
+				"search/thing":      testFileObject{name: "search/thing", data: nil, md5: []byte("000")},
+				"search/stuff":      testFileObject{name: "search/stuff", data: nil, md5: []byte("765")},
+				"otherDir/ignoreMe": testFileObject{name: "otherDir/ignoreMe", data: nil, md5: []byte("123")},
 			}},
 			directory: "search/",
 			filename:  "otherDir/ignoreMe",
 			res:       false,
 		},
 		{
-			fs: &testStore{map[string]obj{
-				"search/unique":     obj{name: "search/unique", data: nil, md5: nil},
-				"search/thing":      obj{name: "search/thing", data: nil, md5: []byte("000")},
-				"search/stuff":      obj{name: "search/stuff", data: nil, md5: []byte("765")},
-				"otherDir/ignoreMe": obj{name: "otherDir/ignoreMe", data: nil, md5: []byte("123")},
+			fs: &testStore{map[string]testFileObject{
+				"search/unique":     testFileObject{name: "search/unique", data: nil, md5: nil},
+				"search/thing":      testFileObject{name: "search/thing", data: nil, md5: []byte("000")},
+				"search/stuff":      testFileObject{name: "search/stuff", data: nil, md5: []byte("765")},
+				"otherDir/ignoreMe": testFileObject{name: "otherDir/ignoreMe", data: nil, md5: []byte("123")},
 			}},
 			directory: "search/",
 			filename:  "search/unique",
 			res:       true,
 		},
 		{
-			fs: &testStore{map[string]obj{
-				"otherDir/ignoreMe": obj{name: "otherDir/ignoreMe", data: nil, md5: []byte("123")},
+			fs: &testStore{map[string]testFileObject{
+				"otherDir/ignoreMe": testFileObject{name: "otherDir/ignoreMe", data: nil, md5: []byte("123")},
 			}},
 			directory: "search/",
 			filename:  "otherDir/ignoreMe",
@@ -369,97 +428,74 @@ func Test_determineIfFileIsNew(t *testing.T) {
 
 }
 
-/*
-func Test_getHashOfFile(t *testing.T) {
-	tests := []obj{
-		{
-			md5:  []byte("Moo"),
-			name: "foimsd",
-			data: bytes.NewBuffer(nil),
-		},
-		{
-			md5:  nil,
-			name: "GonnaError",
-			data: bytes.NewBuffer(nil),
-		},
-	}
-	for _, test := range tests {
-		testRes, err := getHashOfFile(test)
-		if (test.md5 != nil && (!reflect.DeepEqual(testRes, test.md5) || err != nil)) || (test.md5 == nil && (testRes != nil || err == nil)) {
-			t.Errorf("Expected %s got %s, %v for %+v", test.md5, testRes, err, test)
-		}
-	}
-
-}*/
-
 func Test_checkIfHashIsUniqueInList(t *testing.T) {
 	tests := []struct {
 		md5      []byte
-		iter     []fileObject
+		iter     map[string][]byte
 		filename string
 		res      bool
 	}{
 		{
 			md5: []byte("cow"),
-			iter: []fileObject{
-				obj{name: "Dinkleberg", md5: []byte("Dinkleberg")},
+			iter: map[string][]byte{
+				"Dinkleberg": []byte("Dinkleberg"),
 			},
 			filename: "Unit testing1",
 			res:      true,
 		},
 		{
 			md5:      []byte("cow"),
-			iter:     []fileObject{},
+			iter:     map[string][]byte{},
 			filename: "Unit testing2",
 			res:      true,
 		},
 		{
 			md5: []byte("cow"),
-			iter: []fileObject{
-				obj{name: "Unit testing3", md5: []byte("cow")},
+			iter: map[string][]byte{
+				"Unit testing3": []byte("cow"),
 			},
 			filename: "Unit testing3",
 			res:      true,
 		},
 		{
 			md5: []byte("cow"),
-			iter: []fileObject{
-				obj{name: "Dinkleberg", md5: []byte("cow")},
+			iter: map[string][]byte{
+				"Dinkleberg": []byte("cow"),
 			},
 			filename: "Unit testing4",
 			res:      false,
 		},
 		{
 			md5: []byte("cow"),
-			iter: []fileObject{
-				obj{name: "Dinkleberg", md5: []byte("Dinkleberg")},
-				obj{name: "Unit testing5", md5: []byte("cow")},
+			iter: map[string][]byte{
+				"Dinkleberg":    []byte("Dinkleberg"),
+				"Unit testing5": []byte("cow"),
 			},
 			filename: "Unit testing5",
 			res:      true,
 		},
 		{
 			md5: []byte("cow"),
-			iter: []fileObject{
-				obj{name: "Dinkleberg", md5: []byte("Dinkleberg")},
-				obj{name: "Unit te5", md5: []byte("cw")},
-				obj{name: "Dieberg", md5: []byte("Dinrg")},
-				obj{name: "Unit test", md5: []byte("ow")},
-				obj{name: "Dinkg", md5: []byte("Din")},
-				obj{name: "Ung5", md5: []byte("c")},
+			iter: map[string][]byte{
+				"Dinkleberg": []byte("Dinkleberg"),
+				"Unit te5":   []byte("cw"),
+				"Dieberg":    []byte("Dinrg"),
+				"Unit test":  []byte("ow"),
+				"Dinkg":      []byte("Din"),
+				"Ung5":       []byte("c"),
 			},
 			filename: "Unit testing6",
 			res:      true,
 		},
 		{
 			md5: []byte("cow"),
-			iter: []fileObject{
-				obj{name: "Dinkleberg", md5: []byte("Dinkleberg")},
-				obj{name: "Unit te5", md5: []byte("cow")},
-				obj{name: "Dieberg", md5: []byte("Dinrg")},
-				obj{name: "Unit test", md5: []byte("ow")},
-				obj{name: "Dinkg", md5: []byte("Din")},
-				obj{name: "Ung5", md5: []byte("c")},
+			iter: map[string][]byte{
+				"Dinkleberg": []byte("Dinkleberg"),
+				"Unit te5":   []byte("cow"),
+				"Dieberg":    []byte("Dinrg"),
+				"Unit test":  []byte("ow"),
+				"Dinkg":      []byte("Din"),
+				"Ung5":       []byte("c"),
 			},
 			filename: "Unit testing7",
 			res:      false,
