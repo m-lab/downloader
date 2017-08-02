@@ -12,8 +12,6 @@ import (
 	"google.golang.org/api/iterator"
 )
 
-func main() {}
-
 const contextTimeout time.Duration = 2 * time.Minute
 
 type fileStore interface {
