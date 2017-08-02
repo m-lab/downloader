@@ -39,7 +39,7 @@ func (store *storeGCS) getFile(name string) fileObject {
 func (store *storeGCS) namesToMD5(prefix string) map[string][]byte {
 	ctx, _ := context.WithTimeout(context.Background(), contextTimeout)
 	objects := store.bkt.Objects(ctx, &storage.Query{"", prefix, false})
-	var namesAndMD5s map[string][]byte = nil
+	var namesAndMD5s map[string][]byte = make(map[string][]byte)
 	for object, err := objects.Next(); err != iterator.Done; object, err = objects.Next() {
 		if err != nil {
 			metrics.DownloaderErrorCount.With(prometheus.Labels{"source": "Unkown Error in iterator in checkIfHashIsUniqueInList"}).Inc()
