@@ -1,4 +1,4 @@
-package main
+package metrics
 
 import (
 	"net/http"
@@ -51,7 +51,7 @@ var (
 )
 
 // setupPrometheus takes no arguments and sets up prometheus metrics for the package
-func setupPrometheus() {
+func SetupPrometheus() {
 	http.Handle("/metrics", promhttp.Handler())
 	prometheus.MustRegister(LastSuccessTime)
 	prometheus.MustRegister(FailedDownloadCount)
