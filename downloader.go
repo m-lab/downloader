@@ -16,6 +16,7 @@ import (
 	"golang.org/x/net/context"
 
 	"cloud.google.com/go/storage"
+	"github.com/m-lab/downloader/metrics"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -103,13 +104,13 @@ func loopOverURLsForever(bucketName string) {
 }
 
 // downloadMaxmindFiles takes a slice of urls pointing to maxmind files, a timestamp that the user wants attached to the files, and the instance of the store interface where the user wants the files stored. It then downloads the files, stores them, and returns and error on failure or nil on success. Gaurenteed to not introduce duplicates.
-func downloadMaxmindFiles(urls []string, timestamp string, fileStore store) error {
+func downloadMaxmindFiles(urls []string, timestamp string, store fileStore) error {
 	var lastErr error = nil
 	for _, url := range urls {
 		dc := downloadConfig{url: url, fileStore: fileStore, prefix: "Maxmind/" + timestamp, backChars: 0, dedupePrefixDepth: 16}
 		if err := runFunctionWithRetry(download, dc, waitAfterFirstDownloadFailure, maximumWaitBetweenDownloadAttempts); err != nil {
 			lastErr = err
-			FailedDownloadCount.With(prometheus.Labels{"download_type": "Maxmind"}).Inc()
+			metrics.FailedDownloadCount.With(prometheus.Labels{"download_type": "Maxmind"}).Inc()
 		}
 	}
 	return lastErr
@@ -117,7 +118,7 @@ func downloadMaxmindFiles(urls []string, timestamp string, fileStore store) erro
 }
 
 // downloadRouteviewsFiles takes a url pointing to a routeview generation log, a directory prefix that the user wants the files placed in, a pointer to the SeqNum of the last successful download, and the instance of the store interface where the user wants the files stored. It will download the files listed in the log file and is gaurenteed not to introduce duplicates
-func downloadRouteviewsFiles(logFileURL string, directory string, lastDownloaded *int, fileStore store) error {
+func downloadRouteviewsFiles(logFileURL string, directory string, lastDownloaded *int, store fileStore) error {
 	var lastErr error = nil
 	routeViewsURLsAndIDs, err := genRouteViewURLs(logFileURL, *lastDownloaded)
 	if err != nil {
@@ -127,7 +128,7 @@ func downloadRouteviewsFiles(logFileURL string, directory string, lastDownloaded
 		dc := downloadConfig{url: urlAndID.url, fileStore: fileStore, prefix: directory, backChars: 8, dedupePrefixDepth: len(directory)}
 		if err := runFunctionWithRetry(download, dc, waitAfterFirstDownloadFailure, maximumWaitBetweenDownloadAttempts); err != nil {
 			lastErr = err
-			FailedDownloadCount.With(prometheus.Labels{"download_type": directory}).Inc()
+			metrics.FailedDownloadCount.With(prometheus.Labels{"download_type": directory}).Inc()
 		}
 		if lastErr == nil {
 			*lastDownloaded = urlAndID.seqnum
@@ -147,7 +148,7 @@ func constructBucketHandle(bucketName string) (*storage.BucketHandle, error) {
 	ctx, _ := context.WithTimeout(context.Background(), 2*time.Minute)
 	client, err := storage.NewClient(ctx)
 	if err != nil {
-		DownloaderErrorCount.With(prometheus.Labels{"source": "Client Setup"}).Inc()
+		metrics.DownloaderErrorCount.With(prometheus.Labels{"source": "Client Setup"}).Inc()
 		return nil, err
 	}
 	return client.Bucket(bucketName), nil
@@ -163,24 +164,24 @@ func download(config interface{}) (error, bool) {
 	// Grab the file from the website
 	resp, err := http.Get(dc.url)
 	if err != nil {
-		DownloaderErrorCount.With(prometheus.Labels{"source": "Web Get"}).Inc()
+		metrics.DownloaderErrorCount.With(prometheus.Labels{"source": "Web Get"}).Inc()
 		return err, false
 	}
 	// Ensure that the webserver thinks our file request was okay
 	if resp.StatusCode != http.StatusOK {
-		DownloaderErrorCount.With(prometheus.Labels{"source": "Webserver gave non-ok response"}).Inc()
+		metrics.DownloaderErrorCount.With(prometheus.Labels{"source": "Webserver gave non-ok response"}).Inc()
 		resp.Body.Close()
 		return errors.New("URL:" + dc.url + " gave response code " + resp.Status), false
 	}
 
 	// Get a handle on our object in GCS where we will store the file
 	filename := dc.url[strings.LastIndex(dc.url, "/")+1-dc.backChars:]
-	obj := dc.fileStore.getFile(dc.prefix + filename)
+	obj := dc.store.getFile(dc.prefix + filename)
 	w := obj.getWriter()
 
 	// Move the file into GCS
 	if _, err = io.Copy(w, resp.Body); err != nil {
-		DownloaderErrorCount.With(prometheus.Labels{"source": "Copy Error"}).Inc()
+		metrics.DownloaderErrorCount.With(prometheus.Labels{"source": "Copy Error"}).Inc()
 		return err, false
 	}
 	w.Close()
@@ -191,7 +192,7 @@ func download(config interface{}) (error, bool) {
 	if !fileNew {
 		err = obj.deleteFile()
 		if err != nil {
-			DownloaderErrorCount.With(prometheus.Labels{"source": "Duplication Deletion Error"}).Inc()
+			metrics.DownloaderErrorCount.With(prometheus.Labels{"source": "Duplication Deletion Error"}).Inc()
 			return err, true
 		}
 	}
@@ -213,31 +214,19 @@ func runFunctionWithRetry(function func(interface{}) (error, bool), config inter
 }
 
 // determineIfFileIsNew takes an implementation of the store interface, a filename, and a search dir and determines if any of the files in the search dir are duplicates of the file given by filename. If there is a duplicate then the file is not new and it returns false. If there is not duplicate (or if we are unsure, just to be safe) we return true, indicating that the file is new and should be kept.
-func determineIfFileIsNew(fileStore store, fileName string, searchDir string) bool {
-	md5Hash, err := fileStore.getFile(fileName).getMD5()
-	if err != nil {
-		log.Println(err)
+func determineIfFileIsNew(store fileStore, fileName string, searchDir string) bool {
+	md5Hash, ok := store.namesToMD5(fileName)[fileName]
+	if !ok {
+		log.Println("Couldn't find file for hash generation!!!")
 		return true
 	}
-	objects := fileStore.getFiles(searchDir)
-	return checkIfHashIsUniqueInList(md5Hash, objects, fileName)
+	md5Map := store.namesToMD5(searchDir)
+	return checkIfHashIsUniqueInList(md5Hash, md5Map, fileName)
 }
 
 // checkIfHashIsUniqueInList takes an MD5 hash, a slice of fileAttributes, and a filename corresponding to the MD5 hash. It will return false if it finds another file in the slice with a matching MD5 and a different filename. Otherwise, it will return true.
-func checkIfHashIsUniqueInList(md5Hash []byte, fileList []fileObject, fileName string) bool {
-	if fileList == nil {
-		DownloaderErrorCount.With(prometheus.Labels{"source": "Couldn't get list of other files in directory"}).Inc()
-		return true
-	}
-	for _, otherFile := range fileList {
-		otherMD5, err := otherFile.getMD5()
-		if err != nil {
-			return true
-		}
-		otherName, err := otherFile.getName()
-		if err != nil {
-			return true
-		}
+func checkIfHashIsUniqueInList(md5Hash []byte, md5Map map[string][]byte, fileName string) bool {
+	for otherName, otherMD5 := range md5Map {
 		if bytes.Equal(otherMD5, md5Hash) && otherName != fileName {
 			return false
 		}
@@ -252,19 +241,19 @@ func genRouteViewURLs(logFileURL string, lastDownloaded int) ([]urlAndSeqNum, er
 	// Compile parser regex
 	re, err := regexp.Compile(`(\d{1,6})\s*(\d{10})\s*(.*)`)
 	if err != nil {
-		RouteviewsURLErrorCount.With(prometheus.Labels{"source": "Regex Compilation Error"}).Inc()
+		metrics.RouteviewsURLErrorCount.With(prometheus.Labels{"source": "Regex Compilation Error"}).Inc()
 		return nil, err
 	}
 
 	// Get the generation log file from the routeviews website
 	resp, err := http.Get(logFileURL)
 	if err != nil {
-		RouteviewsURLErrorCount.With(prometheus.Labels{"source": "Couldn't grab the log file from the Routeviews server."}).Inc()
+		metrics.RouteviewsURLErrorCount.With(prometheus.Labels{"source": "Couldn't grab the log file from the Routeviews server."}).Inc()
 		return nil, err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		RouteviewsURLErrorCount.With(prometheus.Labels{"source": "Webserver gave non-ok response"}).Inc()
+		metrics.RouteviewsURLErrorCount.With(prometheus.Labels{"source": "Webserver gave non-ok response"}).Inc()
 		return nil, errors.New("URL:" + logFileURL + " gave response code " + resp.Status)
 	}
 
@@ -277,7 +266,7 @@ func genRouteViewURLs(logFileURL string, lastDownloaded int) ([]urlAndSeqNum, er
 	for _, match := range matches {
 		seqNum, err := strconv.Atoi(match[1])
 		if err != nil {
-			RouteviewsURLErrorCount.With(prometheus.Labels{"source": "Regex is matching non-numbers where it should not."}).Inc()
+			metrics.RouteviewsURLErrorCount.With(prometheus.Labels{"source": "Regex is matching non-numbers where it should not."}).Inc()
 			continue
 		}
 		if seqNum > lastDownloaded {
