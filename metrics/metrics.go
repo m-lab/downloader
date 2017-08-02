@@ -1,3 +1,7 @@
+// The metrics package defines a set of metrics for
+// monitoring the downloader and provides a function
+// to initialize those metrics on the /metrics path
+
 package metrics
 
 import (
