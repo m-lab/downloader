@@ -33,11 +33,11 @@ type urlAndSeqNum struct {
 
 // downloadConfig is a struct for bundling parameters to be passed through runFunctionWithRetry to the download function.
 type downloadConfig struct {
-	url               string // The URL of the file to download
-	fileStore         store  // The store in which to place the file
-	prefix            string // The prefix to append to the file name after it's downloaded
-	backChars         int    // The number of extra characters from the URL to include in the file name
-	dedupePrefixDepth int    // The number of characters into the prefix we should search when looking for duplicate files
+	url               string    // The URL of the file to download
+	store             fileStore // The store in which to place the file
+	prefix            string    // The prefix to append to the file name after it's downloaded
+	backChars         int       // The number of extra characters from the URL to include in the file name
+	dedupePrefixDepth int       // The number of characters into the prefix we should search when looking for duplicate files
 }
 
 // The list of URLs to download from Maxmind
@@ -57,7 +57,7 @@ var maxmindURLs []string = []string{
 // The main function seeds the random number generator, starts prometheus in the background, takes the bucket flag from the command line, and kicks off the actual downloader loop
 func main() {
 	rand.Seed(time.Now().UTC().UnixNano())
-	setupPrometheus()
+	metrics.SetupPrometheus()
 	go func() {
 		log.Fatal(http.ListenAndServe(":8080", nil))
 	}()
@@ -97,7 +97,7 @@ func loopOverURLsForever(bucketName string) {
 		}
 
 		if maxmindErr == nil && routeviewIPv4Err == nil && routeviewIPv6Err == nil {
-			LastSuccessTime.SetToCurrentTime()
+			metrics.LastSuccessTime.SetToCurrentTime()
 		}
 		time.Sleep(time.Duration(genUniformSleepTime(averageHoursBetweenUpdateChecks, windowForRandomTimeBetweenUpdateChecks)) * time.Hour)
 	}
@@ -107,7 +107,7 @@ func loopOverURLsForever(bucketName string) {
 func downloadMaxmindFiles(urls []string, timestamp string, store fileStore) error {
 	var lastErr error = nil
 	for _, url := range urls {
-		dc := downloadConfig{url: url, fileStore: fileStore, prefix: "Maxmind/" + timestamp, backChars: 0, dedupePrefixDepth: 16}
+		dc := downloadConfig{url: url, store: store, prefix: "Maxmind/" + timestamp, backChars: 0, dedupePrefixDepth: 16}
 		if err := runFunctionWithRetry(download, dc, waitAfterFirstDownloadFailure, maximumWaitBetweenDownloadAttempts); err != nil {
 			lastErr = err
 			metrics.FailedDownloadCount.With(prometheus.Labels{"download_type": "Maxmind"}).Inc()
@@ -125,7 +125,7 @@ func downloadRouteviewsFiles(logFileURL string, directory string, lastDownloaded
 		return err
 	}
 	for _, urlAndID := range routeViewsURLsAndIDs {
-		dc := downloadConfig{url: urlAndID.url, fileStore: fileStore, prefix: directory, backChars: 8, dedupePrefixDepth: len(directory)}
+		dc := downloadConfig{url: urlAndID.url, store: store, prefix: directory, backChars: 8, dedupePrefixDepth: len(directory)}
 		if err := runFunctionWithRetry(download, dc, waitAfterFirstDownloadFailure, maximumWaitBetweenDownloadAttempts); err != nil {
 			lastErr = err
 			metrics.FailedDownloadCount.With(prometheus.Labels{"download_type": directory}).Inc()
@@ -188,7 +188,7 @@ func download(config interface{}) (error, bool) {
 	resp.Body.Close()
 
 	// Check to make sure we didn't just download a duplicate, and delete it if we did.
-	fileNew := determineIfFileIsNew(dc.fileStore, dc.prefix+filename, dc.prefix[:dc.dedupePrefixDepth]+filename[:dc.backChars])
+	fileNew := determineIfFileIsNew(dc.store, dc.prefix+filename, dc.prefix[:dc.dedupePrefixDepth]+filename[:dc.backChars])
 	if !fileNew {
 		err = obj.deleteFile()
 		if err != nil {
