@@ -1,4 +1,4 @@
-package main
+package download_test
 
 import (
 	"bytes"
@@ -10,6 +10,9 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	d "github.com/m-lab/downloader/download"
+	"github.com/m-lab/downloader/file"
 )
 
 //// implementation of API purely for testing purposes
@@ -19,14 +22,14 @@ type testStore struct {
 	files map[string]testFileObject
 }
 
-func (fsto *testStore) getFile(name string) fileObject {
+func (fsto *testStore) GetFile(name string) file.FileObject {
 	if file, ok := fsto.files[name]; ok {
 		return file
 	}
 	return testFileObject{name: name, md5: nil, data: bytes.NewBuffer(nil), fsto: fsto}
 }
 
-func (fsto *testStore) namesToMD5(prefix string) map[string][]byte {
+func (fsto *testStore) NamesToMD5(prefix string) map[string][]byte {
 	var attrMap map[string][]byte = make(map[string][]byte)
 	for key, object := range fsto.files {
 		if strings.HasPrefix(key, prefix) {
@@ -45,7 +48,7 @@ type testFileObject struct {
 	fsto *testStore
 }
 
-func (file testFileObject) getWriter() io.WriteCloser {
+func (file testFileObject) GetWriter() io.WriteCloser {
 	return file
 }
 
@@ -62,7 +65,7 @@ func (file testFileObject) Close() error {
 	return nil
 }
 
-func (file testFileObject) deleteFile() error {
+func (file testFileObject) DeleteFile() error {
 	if strings.HasSuffix(file.name, "deleteFail") {
 		return errors.New("Couldn't delete file!")
 	}
@@ -71,110 +74,73 @@ func (file testFileObject) deleteFile() error {
 
 //// End of stubs for testing
 
-func Test_downloadMaxmindFiles(t *testing.T) {
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprint(w, r.URL.String())
-	}))
+func TestDownload(t *testing.T) {
 	tests := []struct {
-		urls      []string
-		timestamp string
-		fsto      fileStore
-		res       error
-	}{
-		{
-			urls: []string{
-				ts.URL + "/filename",
-			},
-			timestamp: "2006/01/02/15:04:05-",
-			fsto:      &testStore{map[string]testFileObject{}},
-			res:       nil,
-		},
-		{
-			urls: []string{
-				ts.URL + "/filename",
-				ts.URL + "/deleteFail",
-			},
-			timestamp: "2006/01/02/15:04:05-",
-			fsto:      &testStore{map[string]testFileObject{}},
-			res:       errors.New(""),
-		},
-	}
-	for _, test := range tests {
-		res := downloadMaxmindFiles(test.urls, test.timestamp, test.fsto)
-		if (res == nil && test.res != nil) || (res != nil && test.res == nil) {
-			t.Errorf("Expected %t, got %t for %+v\n\n, file sto: %+v, fstoaddr: ", test.res, res, test, test.fsto, &test.fsto)
-		}
-	}
-
-}
-
-func Test_download(t *testing.T) {
-	tests := []struct {
-		dc      downloadConfig
+		dc      d.DownloadConfig
 		postfix string
 		resBool bool
 		resErr  error
 	}{
 		{
-			dc: downloadConfig{
-				url:       "Fill me",
-				store:     &testStore{map[string]testFileObject{}},
-				prefix:    "pre/",
-				backChars: 0,
+			dc: d.DownloadConfig{
+				URL:       "Fill me",
+				Store:     &testStore{map[string]testFileObject{}},
+				Prefix:    "pre/",
+				BackChars: 0,
 			},
 			postfix: "portGarbage",
 			resBool: false,
 			resErr:  errors.New("invalid URL port"),
 		},
 		{
-			dc: downloadConfig{
-				url:       "Fill me",
-				store:     &testStore{map[string]testFileObject{}},
-				prefix:    "pre/",
-				backChars: 0,
+			dc: d.DownloadConfig{
+				URL:       "Fill me",
+				Store:     &testStore{map[string]testFileObject{}},
+				Prefix:    "pre/",
+				BackChars: 0,
 			},
 			postfix: "/file.error",
 			resBool: false,
 			resErr:  errors.New("non-200 error"),
 		},
 		{
-			dc: downloadConfig{
-				url:       "Fill me",
-				store:     &testStore{map[string]testFileObject{}},
-				prefix:    "pre/",
-				backChars: 0,
+			dc: d.DownloadConfig{
+				URL:       "Fill me",
+				Store:     &testStore{map[string]testFileObject{}},
+				Prefix:    "pre/",
+				BackChars: 0,
 			},
 			postfix: "/file.copyFail",
 			resBool: false,
 			resErr:  errors.New("File copy error"),
 		},
 		{
-			dc: downloadConfig{
-				url: "Fill me",
-				store: &testStore{map[string]testFileObject{
+			dc: d.DownloadConfig{
+				URL: "Fill me",
+				Store: &testStore{map[string]testFileObject{
 					"pre/file.del/dup": testFileObject{name: "pre/file.del/dup", data: bytes.NewBuffer(nil), md5: []byte("NEW FILE")},
 				}},
-				prefix:    "pre/",
-				backChars: 0,
+				Prefix:    "pre/",
+				BackChars: 0,
 			},
 			postfix: "/file.deleteFail",
 			resBool: true,
 			resErr:  errors.New("Couldn't Delete File"),
 		},
 		{
-			dc: downloadConfig{
-				url:       "Fill me",
-				store:     &testStore{map[string]testFileObject{}},
-				prefix:    "pre/",
-				backChars: 0,
+			dc: d.DownloadConfig{
+				URL:       "Fill me",
+				Store:     &testStore{map[string]testFileObject{}},
+				Prefix:    "pre/",
+				BackChars: 0,
 			},
 			postfix: "/file.success",
 			resBool: false,
 			resErr:  nil,
 		},
 	}
-	if err, force := download(nil); err == nil || force != true {
-		t.Errorf("FUNCTION DID NOT REJECT INVALID INTERFACE!!!")
+	if err, force := d.Download(nil); err == nil || force != true {
+		t.Errorf("Expected an improper DownloadConfig error and unrecoverable, got nil or no recoverable.")
 	}
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Path
@@ -185,8 +151,8 @@ func Test_download(t *testing.T) {
 		fmt.Fprint(w, "Stuff")
 	}))
 	for _, test := range tests {
-		test.dc.url = ts.URL + test.postfix
-		err, resBool := download(test.dc)
+		test.dc.URL = ts.URL + test.postfix
+		err, resBool := d.Download(test.dc)
 		if test.resBool != resBool || (err != nil && test.resErr == nil) || (err == nil && test.resErr != nil) {
 			t.Errorf("Expected %s, %t got %s, %t", test.resErr, test.resBool, err, resBool)
 		}
@@ -200,7 +166,7 @@ type retryTest struct {
 	numError int
 }
 
-func Test_runFunctionWithRetry(t *testing.T) {
+func TestRunFunctionWithRetry(t *testing.T) {
 	tests := []struct {
 		data         *retryTest
 		retryTimeMin time.Duration
@@ -247,7 +213,7 @@ func Test_runFunctionWithRetry(t *testing.T) {
 		return errors.New("runFunction Error"), rt.force
 	}
 	for _, test := range tests {
-		res := runFunctionWithRetry(f, test.data, test.retryTimeMin, test.retryTimeMax)
+		res := d.RunFunctionWithRetry(f, test.data, test.retryTimeMin, test.retryTimeMax)
 		if (res != nil && test.res == nil) || (res == nil && test.res != nil) {
 			t.Errorf("Expected %s, got %s", test.res, res)
 		}
@@ -255,7 +221,7 @@ func Test_runFunctionWithRetry(t *testing.T) {
 
 }
 
-func Test_determineIfFileIsNew(t *testing.T) {
+func TestDetermineIfFileIsNew(t *testing.T) {
 	tests := []struct {
 		fs        *testStore
 		directory string
@@ -316,7 +282,7 @@ func Test_determineIfFileIsNew(t *testing.T) {
 		},
 	}
 	for _, test := range tests {
-		res := determineIfFileIsNew(test.fs, test.filename, test.directory)
+		res := d.DetermineIfFileIsNew(test.fs, test.filename, test.directory)
 		if res != test.res {
 			t.Errorf("Expected %t, got %t for %+v.", test.res, res, test)
 		}
@@ -324,7 +290,7 @@ func Test_determineIfFileIsNew(t *testing.T) {
 
 }
 
-func Test_checkIfHashIsUniqueInList(t *testing.T) {
+func TestCheckIfHashIsUniqueInList(t *testing.T) {
 	tests := []struct {
 		md5      []byte
 		iter     map[string][]byte
@@ -398,7 +364,7 @@ func Test_checkIfHashIsUniqueInList(t *testing.T) {
 		},
 	}
 	for _, test := range tests {
-		testRes := checkIfHashIsUniqueInList(test.md5, test.iter, test.filename)
+		testRes := d.CheckIfHashIsUniqueInList(test.md5, test.iter, test.filename)
 		if testRes != test.res {
 			t.Errorf("Expected %t got %t for %+v", test.res, testRes, test)
 		}
