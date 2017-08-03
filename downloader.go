@@ -155,7 +155,7 @@ func constructBucketHandle(bucketName string) (*storage.BucketHandle, error) {
 	return client.Bucket(bucketName), nil
 }
 
-// download takes a fully populated downloadConfig and downloads the file specefied by the URL, storing it in the store implementation that is passed in, in the directory specefied by the prefix, given the number of extra characters from the URL specified by backChars.
+// download takes a fully populated downloadConfig and downloads the file specefied by the URL, storing it in the store implementation that is passed in, in the directory specefied by the prefix, given the number of extra characters from the URL specified by backChars. The error value indicates the error, if any occurred. If the error value is not nil, then the boolean will also be set. If the boolean is true, that means that the error cannot be fixed by retrying the download. If the boolean is false, that means that the download might work if you attempt it again. If the error value is nil, then the value of the boolean is meaningless.
 func download(config interface{}) (error, bool) {
 	dc, ok := config.(downloadConfig)
 	if !ok {
