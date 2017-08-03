@@ -30,6 +30,7 @@ type urlAndSeqNum struct {
 	seqnum int    // The seqnum of the file, as given in the routeview generation log file
 }
 
+// TODO(JosephMarques): Find a better method than using backChars. Possibly regex?
 // downloadConfig is a struct for bundling parameters to be passed through runFunctionWithRetry to the download function.
 type downloadConfig struct {
 	url       string    // The URL of the file to download
