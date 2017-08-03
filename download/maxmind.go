@@ -22,7 +22,7 @@ var MaxmindURLs []string = []string{
 
 // downloadMaxmindFiles takes a slice of urls pointing to maxmind files,
 // a timestamp that the user wants attached to the files,
-// and the instance of the store interface where the user wants the files stored.
+// and the instance of the FileStore interface where the user wants the files stored.
 // It then downloads the files, stores them, and returns and error on failure or nil on success.
 // Gaurenteed to not introduce duplicates.
 func DownloadMaxmindFiles(urls []string, timestamp string, store file.FileStore) error {

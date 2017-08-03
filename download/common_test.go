@@ -166,6 +166,13 @@ type retryTest struct {
 	numError int
 }
 
+// RunFunctionWithRetry takes an arbitrary function and an interface{} that will be passed to it.
+// So for this test, we create an anonymous function,
+// which will return a certain number of errors before the call succeedes.
+// The function will also return whether or not the error is unrecoverable,
+// based on what we pass into it. This allows us to test all three possible paths for
+// RunFunctionWithRetry: Run and succeed, run and fail until timeout,
+// run and fail a few times before suceeding, and run and fail with an error that forces an immediate exit
 func TestRunFunctionWithRetry(t *testing.T) {
 	tests := []struct {
 		data         *retryTest
@@ -174,31 +181,31 @@ func TestRunFunctionWithRetry(t *testing.T) {
 		res          error
 	}{
 		{
-			data:         &retryTest{force: false, numError: 0},
+			data:         &retryTest{force: false, numError: 0}, // Run and succeed
 			retryTimeMin: 0,
 			retryTimeMax: 0,
 			res:          nil,
 		},
 		{
-			data:         &retryTest{force: false, numError: 1},
+			data:         &retryTest{force: false, numError: 1}, // Run and succeed
 			retryTimeMin: 1,
 			retryTimeMax: 0,
 			res:          errors.New("runFunction Error 1"),
 		},
 		{
-			data:         &retryTest{force: false, numError: 100},
+			data:         &retryTest{force: false, numError: 100}, // Fail and timeout
 			retryTimeMin: 1 * time.Nanosecond,
 			retryTimeMax: 50 * time.Nanosecond,
 			res:          errors.New("runFunction Error 2"),
 		},
 		{
-			data:         &retryTest{force: false, numError: 10},
+			data:         &retryTest{force: false, numError: 10}, // Run, fail, then succeed
 			retryTimeMin: 1 * time.Nanosecond,
 			retryTimeMax: 5000 * time.Nanosecond,
 			res:          nil,
 		},
 		{
-			data:         &retryTest{force: true, numError: 10},
+			data:         &retryTest{force: true, numError: 10}, // Run, fail, force exit
 			retryTimeMin: 1 * time.Nanosecond,
 			retryTimeMax: 5000 * time.Nanosecond,
 			res:          errors.New("runFunction Error 3"),

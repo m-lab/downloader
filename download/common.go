@@ -98,7 +98,7 @@ func RunFunctionWithRetry(function func(interface{}) (error, bool), config inter
 	return nil
 }
 
-// DetermineIfFileIsNew takes an implementation of the store interface,
+// DetermineIfFileIsNew takes an implementation of the FileStore interface,
 // a filename, and a search dir and determines if any of the files in the
 // search dir are duplicates of the file given by filename.
 // If there is a duplicate then the file is not new and it returns false.
