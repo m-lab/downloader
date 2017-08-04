@@ -13,7 +13,7 @@ import (
 	"github.com/m-lab/downloader/file"
 )
 
-func TestDownloadRouteviewsFiles(t *testing.T) {
+func TestDownloadCaidaRouteviewsFiles(t *testing.T) {
 	tests := []struct {
 		logFile string
 		dir     string
@@ -90,7 +90,7 @@ func TestDownloadRouteviewsFiles(t *testing.T) {
 		fmt.Fprint(w, r.URL.String())
 	}))
 	for _, test := range tests {
-		res := d.DownloadRouteviewsFiles(ts.URL+test.logFile, test.dir, &test.lastD, test.fsto)
+		res := d.DownloadCaidaRouteviewsFiles(ts.URL+test.logFile, test.dir, &test.lastD, test.fsto)
 		if (res == nil && test.res != nil) || (res != nil && test.res == nil) {
 			t.Errorf("Expected %t, got %t!!!", test.res, res)
 		}
