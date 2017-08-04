@@ -16,25 +16,34 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
-const averageHoursBetweenUpdateChecks = 8 * time.Hour        // The average time (in hours) to wait in between attempts to download files
-const windowForRandomTimeBetweenUpdateChecks = 4 * time.Hour // The window of time (in hours) to allow a random time to be chosen from.
+// The average time (in hours) to wait in between attempts to download
+// files
+const averageHoursBetweenUpdateChecks = 8 * time.Hour
 
-// The main function seeds the random number generator, starts prometheus in the background, takes the bucket flag from the command line, and kicks off the actual downloader loop
+// The window of time (in hours) to allow a random time to be chosen
+// from.
+const windowForRandomTimeBetweenUpdateChecks = 4 * time.Hour
+
+// The main function seeds the random number generator, starts
+// prometheus in the background, takes the bucket flag from the
+// command line, and kicks off the actual downloader loop
 func main() {
-	rand.Seed(time.Now().UTC().UnixNano())
-	metrics.SetupPrometheus()
-	go func() {
-		log.Fatal(http.ListenAndServe(":8080", nil))
-	}()
 	bucketName := flag.String("bucket", "", "Specify the bucket name to store the results in.")
 	flag.Parse()
 	if *bucketName == "" {
 		log.Fatal("NO BUCKET SPECIFIED!!!")
 	}
+	rand.Seed(time.Now().UTC().UnixNano())
+	metrics.SetupPrometheus()
+	go func() {
+		log.Fatal(http.ListenAndServe(":8080", nil))
+	}()
 	loopOverURLsForever(*bucketName)
 }
 
-// loopOverURLsForever takes a bucketName, pointing to a GCS bucket, and then tries to download the files over and over again until the end of time (waiting an average of 8 hours in between attempts)
+// loopOverURLsForever takes a bucketName, pointing to a GCS bucket,
+// and then tries to download the files over and over again until the
+// end of time (waiting an average of 8 hours in between attempts)
 func loopOverURLsForever(bucketName string) {
 	lastDownloadedV4 := 0
 	lastDownloadedV6 := 0
@@ -68,7 +77,8 @@ func loopOverURLsForever(bucketName string) {
 	}
 }
 
-// constructBucketHandle takes a bucket name and safely loads it, returning either the handle to the bucket or an error
+// constructBucketHandle takes a bucket name and safely loads it,
+// returning either the handle to the bucket or an error
 func constructBucketHandle(bucketName string) (*storage.BucketHandle, error) {
 	ctx, _ := context.WithTimeout(context.Background(), 2*time.Minute)
 	client, err := storage.NewClient(ctx)
