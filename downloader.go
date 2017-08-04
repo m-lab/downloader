@@ -16,8 +16,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
-const averageHoursBetweenUpdateChecks = 8        // The average time (in hours) to wait in between attempts to download files
-const windowForRandomTimeBetweenUpdateChecks = 8 // The window of time (in hours) to allow a random time to be chosen from.
+const averageHoursBetweenUpdateChecks = 8 * time.Hour        // The average time (in hours) to wait in between attempts to download files
+const windowForRandomTimeBetweenUpdateChecks = 4 * time.Hour // The window of time (in hours) to allow a random time to be chosen from.
 
 // The main function seeds the random number generator, starts prometheus in the background, takes the bucket flag from the command line, and kicks off the actual downloader loop
 func main() {
@@ -51,12 +51,12 @@ func loopOverURLsForever(bucketName string) {
 			log.Println(maxmindErr)
 		}
 
-		routeviewIPv4Err := download.DownloadRouteviewsFiles("http://data.caida.org/datasets/routing/routeviews-prefix2as/pfx2as-creation.log", "RouteViewIPv4/", &lastDownloadedV4, fileStore)
+		routeviewIPv4Err := download.DownloadCaidaRouteviewsFiles("http://data.caida.org/datasets/routing/routeviews-prefix2as/pfx2as-creation.log", "RouteViewIPv4/", &lastDownloadedV4, fileStore)
 		if routeviewIPv4Err != nil {
 			log.Println(routeviewIPv4Err)
 		}
 
-		routeviewIPv6Err := download.DownloadRouteviewsFiles("http://data.caida.org/datasets/routing/routeviews6-prefix2as/pfx2as-creation.log", "RouteViewIPv6/", &lastDownloadedV6, fileStore)
+		routeviewIPv6Err := download.DownloadCaidaRouteviewsFiles("http://data.caida.org/datasets/routing/routeviews6-prefix2as/pfx2as-creation.log", "RouteViewIPv6/", &lastDownloadedV6, fileStore)
 		if routeviewIPv6Err != nil {
 			log.Println(routeviewIPv6Err)
 		}
@@ -64,7 +64,7 @@ func loopOverURLsForever(bucketName string) {
 		if maxmindErr == nil && routeviewIPv4Err == nil && routeviewIPv6Err == nil {
 			metrics.LastSuccessTime.SetToCurrentTime()
 		}
-		time.Sleep(time.Duration(download.GenUniformSleepTime(averageHoursBetweenUpdateChecks, windowForRandomTimeBetweenUpdateChecks)) * time.Hour)
+		time.Sleep(download.GenUniformSleepTime(averageHoursBetweenUpdateChecks, windowForRandomTimeBetweenUpdateChecks))
 	}
 }
 
