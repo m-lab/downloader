@@ -1,4 +1,4 @@
-package main
+package file
 
 import (
 	"io"
@@ -14,29 +14,29 @@ import (
 
 const contextTimeout time.Duration = 2 * time.Minute
 
-type fileStore interface {
-	getFile(name string) fileObject
-	namesToMD5(prefix string) map[string][]byte
+type FileStore interface {
+	GetFile(name string) FileObject
+	NamesToMD5(prefix string) map[string][]byte
 }
 
-type fileObject interface {
-	getWriter() io.WriteCloser
-	deleteFile() error
+type FileObject interface {
+	GetWriter() io.WriteCloser
+	DeleteFile() error
 }
 
 //// actual implementation of store
 
-type storeGCS struct {
-	bkt *storage.BucketHandle
+type StoreGCS struct {
+	Bkt *storage.BucketHandle
 }
 
-func (store *storeGCS) getFile(name string) fileObject {
-	return &fileObjectGCS{obj: store.bkt.Object(name)}
+func (store *StoreGCS) GetFile(name string) FileObject {
+	return &FileObjectGCS{obj: store.Bkt.Object(name)}
 }
 
-func (store *storeGCS) namesToMD5(prefix string) map[string][]byte {
+func (store *StoreGCS) NamesToMD5(prefix string) map[string][]byte {
 	ctx, _ := context.WithTimeout(context.Background(), contextTimeout)
-	objects := store.bkt.Objects(ctx, &storage.Query{"", prefix, false})
+	objects := store.Bkt.Objects(ctx, &storage.Query{"", prefix, false})
 	var namesAndMD5s map[string][]byte = make(map[string][]byte)
 	for object, err := objects.Next(); err != iterator.Done; object, err = objects.Next() {
 		if err != nil {
@@ -49,16 +49,16 @@ func (store *storeGCS) namesToMD5(prefix string) map[string][]byte {
 }
 
 //// actual implementation of fileObject
-type fileObjectGCS struct {
+type FileObjectGCS struct {
 	obj *storage.ObjectHandle
 }
 
-func (file *fileObjectGCS) getWriter() io.WriteCloser {
+func (file *FileObjectGCS) GetWriter() io.WriteCloser {
 	ctx, _ := context.WithTimeout(context.Background(), contextTimeout)
 	return file.obj.NewWriter(ctx)
 }
 
-func (file *fileObjectGCS) deleteFile() error {
+func (file *FileObjectGCS) DeleteFile() error {
 	ctx, _ := context.WithTimeout(context.Background(), contextTimeout)
 	return file.obj.Delete(ctx)
 }
