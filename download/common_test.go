@@ -77,15 +77,15 @@ func (file testFileObject) DeleteFile() error {
 
 func TestGenUniformSleepTime(t *testing.T) {
 	rand.Seed(0)
-	testVals := make([]float64, 5)
-	testVals[0] = 9.780784597176465
-	testVals[1] = 6.979860341175119
-	testVals[2] = 8.623825060781620
-	testVals[3] = 6.217375358398802
-	testVals[4] = 7.470348826529834
+	testVals := make([]time.Duration, 5)
+	testVals[0] = time.Duration(35210824549835)
+	testVals[1] = time.Duration(25127497228230)
+	testVals[2] = time.Duration(31045770218813)
+	testVals[3] = time.Duration(22382551290235)
+	testVals[4] = time.Duration(26893255775507)
 	for i := 0; i < 5; i++ {
-		testRes := d.GenUniformSleepTime(8, 4)
-		if testVals[i] != testRes {
+		testRes := d.GenUniformSleepTime(8*time.Hour, 4*time.Hour)
+		if int64(testVals[i].Seconds()) != int64(testRes.Seconds()) {
 			t.Errorf("Expected %s, got %s.", testVals[i], testRes)
 		}
 	}
@@ -245,7 +245,7 @@ func TestRunFunctionWithRetry(t *testing.T) {
 
 }
 
-func TestDetermineIfFileIsNew(t *testing.T) {
+func TestIsFileNew(t *testing.T) {
 	tests := []struct {
 		fs        *testStore
 		directory string
@@ -306,7 +306,7 @@ func TestDetermineIfFileIsNew(t *testing.T) {
 		},
 	}
 	for _, test := range tests {
-		res := d.DetermineIfFileIsNew(test.fs, test.filename, test.directory)
+		res := d.IsFileNew(test.fs, test.filename, test.directory)
 		if res != test.res {
 			t.Errorf("Expected %t, got %t for %+v.", test.res, res, test)
 		}
