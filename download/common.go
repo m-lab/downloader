@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"log"
+	"math/rand"
 	"net/http"
 	"strings"
 	"time"
@@ -24,6 +25,11 @@ type DownloadConfig struct {
 	Store     file.FileStore // The FileStore in which to place the file
 	Prefix    string         // The prefix to append to the file name after it's downloaded
 	BackChars int            // The number of extra characters from the URL to include in the file name
+}
+
+// GenUniformSleepTime generatres a random time to sleep (in hours) that is on average, the time given by sleepInterval. It will give a random time in the interval specefied by sleepDeviation (centered around sleepInterval).
+func GenUniformSleepTime(sleepInterval float64, sleepDeviation float64) float64 {
+	return (rand.Float64()-0.5)*sleepDeviation + sleepInterval
 }
 
 // Download takes a fully populated downloadConfig and downloads the file specefied by the URL,

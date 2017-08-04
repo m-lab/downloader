@@ -20,7 +20,7 @@ var MaxmindURLs []string = []string{
 	"http://geolite.maxmind.com/download/geoip/database/GeoIPv6.csv.gz",
 }
 
-// downloadMaxmindFiles takes a slice of urls pointing to maxmind files,
+// DownloadMaxmindFiles takes a slice of urls pointing to maxmind files,
 // a timestamp that the user wants attached to the files,
 // and the instance of the FileStore interface where the user wants the files stored.
 // It then downloads the files, stores them, and returns and error on failure or nil on success.
