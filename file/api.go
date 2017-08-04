@@ -1,3 +1,7 @@
+// The file package exports a generic file interface that we use to
+// access Google Cloud Storage. None of the functions here are
+// unit-testable because they are all either interfaces or connect to
+// Google Cloud Storage, which cannot be unit tested.
 package file
 
 import (
