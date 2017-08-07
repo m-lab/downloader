@@ -17,10 +17,10 @@ import (
 
 // The time (in minutes) to wait before the first retry of a failed
 // download
-const waitAfterFirstDownloadFailure = time.Minute * time.Duration(1)
+var WaitAfterFirstDownloadFailure = time.Minute * time.Duration(1)
 
 // The maximum time (in minutes) to wait in between download attempts
-const maximumWaitBetweenDownloadAttempts = time.Minute * time.Duration(8)
+var MaximumWaitBetweenDownloadAttempts = time.Minute * time.Duration(8)
 
 // TODO(JosephMarques): Find a better method than using
 // backChars. Possibly regex?  downloadConfig is a struct for bundling

@@ -40,8 +40,8 @@ func DownloadCaidaRouteviewsFiles(logFileURL string, directory string, lastDownl
 		// TODO(JosephMarques): Restructure entire backchars/dedupe system. It just doesn't work well at the moment. Some sort of selection and regex function.
 		dc := DownloadConfig{URL: urlAndID.URL, Store: store, PathPrefix: directory, FilePrefix: "",
 			URLRegexp: routeviewsURLToFilenameRegexp, DedupeRegexp: routeviewsFilenameToDedupeRegexp}
-		if err := RunFunctionWithRetry(Download, dc, waitAfterFirstDownloadFailure,
-			maximumWaitBetweenDownloadAttempts); err != nil {
+		if err := RunFunctionWithRetry(Download, dc, WaitAfterFirstDownloadFailure,
+			MaximumWaitBetweenDownloadAttempts); err != nil {
 
 			lastErr = err
 			metrics.FailedDownloadCount.With(prometheus.Labels{"download_type": directory}).Inc()
