@@ -71,21 +71,21 @@ func TestDownloadCaidaRouteviewsFiles(t *testing.T) {
 		}
 		if strings.HasSuffix(path, "logFile2") {
 			fmt.Fprint(w, `# Format: 1
-			# Fields: seqnum timestamp path
-			# Generated: 2017-07-16 09:26:29 -0700
-			# --------------------------------------------------------------------------
-			# Check this log regularly (once or twice a day) to keep up with the
-			# generation of daily files.  The easiest way to find the newest files is
-			# to compare the last seqnum you downloaded to the seqnum of all entries.
-			#
-			# The timestamp column gives the time that a daily pfx2as file was
-			# generated.  Please note that the timestamp will _not_ necessarily match
-			# the date in the filename, since file generation intentionally lags behind
-			# a bit.
-			# --------------------------------------------------------------------------
-			3363	1497717708	2017/06/routeviews-rv2-20170616-1200.pfx2as.gz
-			3364	1497803191	2017/06/routeviews-rv2-20170617-1200.pfx2as.gz
-			3365	1497889838	2017/06/copyFail`)
+# Fields: seqnum timestamp path
+# Generated: 2017-07-16 09:26:29 -0700
+# --------------------------------------------------------------------------
+# Check this log regularly (once or twice a day) to keep up with the
+# generation of daily files.  The easiest way to find the newest files is
+# to compare the last seqnum you downloaded to the seqnum of all entries.
+#
+# The timestamp column gives the time that a daily pfx2as file was
+# generated.  Please note that the timestamp will _not_ necessarily match
+# the date in the filename, since file generation intentionally lags behind
+# a bit.
+# --------------------------------------------------------------------------
+3363	1497717708	2017/06/routeviews-rv2-20170616-1200.pfx2as.gz
+3364	1497803191	2017/06/routeviews-rv2-20170617-1200.pfx2as.gz
+3365	1497889838	2017/06/copyFail`)
 			return
 		}
 		fmt.Fprint(w, r.URL.String())
