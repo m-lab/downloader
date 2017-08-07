@@ -36,7 +36,7 @@ func DownloadMaxmindFiles(urls []string, timestamp string, store file.FileStore)
 	var lastErr error = nil
 	for _, url := range urls {
 		dc := DownloadConfig{URL: url, Store: store, PathPrefix: "Maxmind/" + timestamp,
-			FilePrefix: time.Now().UTC().Format("20060102T150402Z-"), URLRegexp: maxmindURLToFilenameRegexp,
+			FilePrefix: time.Now().UTC().Format("20060102T150405Z-"), URLRegexp: maxmindURLToFilenameRegexp,
 			DedupeRegexp: maxmindFilenameToDedupeRegexp}
 		if err := RunFunctionWithRetry(Download, dc, WaitAfterFirstDownloadFailure,
 			MaximumWaitBetweenDownloadAttempts); err != nil {
