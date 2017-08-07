@@ -74,7 +74,7 @@ func Download(config interface{}) (error, bool) {
 	}
 
 	// Get a handle on our object in GCS where we will store the file
-	timestamp := time.Now().UTC().Format("20060102T150402Z")
+	timestamp := time.Now().UTC().Format("20060102T150402Z-")
 	urlMatches := dc.URLRegexp.FindAllStringSubmatch(dc.URL, -1)
 	filename := dc.Prefix + urlMatches[0][1] + timestamp + urlMatches[0][2]
 	obj := dc.Store.GetFile(filename)
