@@ -38,7 +38,7 @@ func DownloadCaidaRouteviewsFiles(logFileURL string, directory string, lastDownl
 	}
 	for _, urlAndID := range routeViewsURLsAndIDs {
 		// TODO(JosephMarques): Restructure entire backchars/dedupe system. It just doesn't work well at the moment. Some sort of selection and regex function.
-		dc := DownloadConfig{URL: urlAndID.URL, Store: store, Prefix: directory,
+		dc := DownloadConfig{URL: urlAndID.URL, Store: store, PathPrefix: directory, FilePrefix: "",
 			URLRegexp: routeviewsURLToFilenameRegexp, DedupeRegexp: routeviewsFilenameToDedupeRegexp}
 		if err := RunFunctionWithRetry(Download, dc, waitAfterFirstDownloadFailure,
 			maximumWaitBetweenDownloadAttempts); err != nil {

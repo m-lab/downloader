@@ -2,6 +2,7 @@ package download
 
 import (
 	"regexp"
+	"time"
 
 	"github.com/m-lab/downloader/file"
 	"github.com/m-lab/downloader/metrics"
@@ -34,8 +35,9 @@ var MaxmindURLs []string = []string{
 func DownloadMaxmindFiles(urls []string, timestamp string, store file.FileStore) error {
 	var lastErr error = nil
 	for _, url := range urls {
-		dc := DownloadConfig{URL: url, Store: store, Prefix: "Maxmind/" + timestamp,
-			URLRegexp: maxmindURLToFilenameRegexp, DedupeRegexp: maxmindFilenameToDedupeRegexp}
+		dc := DownloadConfig{URL: url, Store: store, PathPrefix: "Maxmind/" + timestamp,
+			FilePrefix: time.Now().UTC().Format("20060102T150402Z-"), URLRegexp: maxmindURLToFilenameRegexp,
+			DedupeRegexp: maxmindFilenameToDedupeRegexp}
 		if err := RunFunctionWithRetry(Download, dc, waitAfterFirstDownloadFailure,
 			maximumWaitBetweenDownloadAttempts); err != nil {
 

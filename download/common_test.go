@@ -103,7 +103,7 @@ func Test_download(t *testing.T) {
 			dc: d.DownloadConfig{
 				URL:          "Fill me",
 				Store:        &testStore{map[string]testFileObject{}},
-				Prefix:       "pre/",
+				PathPrefix:   "pre/",
 				URLRegexp:    regexp.MustCompile(`.*()(/.*)`),
 				DedupeRegexp: regexp.MustCompile(`(.*)`),
 			},
@@ -115,7 +115,7 @@ func Test_download(t *testing.T) {
 			dc: d.DownloadConfig{
 				URL:          "Fill me",
 				Store:        &testStore{map[string]testFileObject{}},
-				Prefix:       "pre/",
+				PathPrefix:   "pre/",
 				URLRegexp:    regexp.MustCompile(`.*()(/.*)`),
 				DedupeRegexp: regexp.MustCompile(`(.*)`),
 			},
@@ -127,7 +127,7 @@ func Test_download(t *testing.T) {
 			dc: d.DownloadConfig{
 				URL:          "Fill me",
 				Store:        &testStore{map[string]testFileObject{}},
-				Prefix:       "pre/",
+				PathPrefix:   "pre/",
 				URLRegexp:    regexp.MustCompile(`.*()(/.*)`),
 				DedupeRegexp: regexp.MustCompile(`(.*)`),
 			},
@@ -141,7 +141,7 @@ func Test_download(t *testing.T) {
 				Store: &testStore{map[string]testFileObject{
 					"pre/file.del/dup": testFileObject{name: "pre/file.del/dup", data: bytes.NewBuffer(nil), md5: []byte("NEW FILE")},
 				}},
-				Prefix:       "pre/",
+				PathPrefix:   "pre/",
 				URLRegexp:    regexp.MustCompile(`.*()(/.*)`),
 				DedupeRegexp: regexp.MustCompile(`(pre/)`),
 			},
@@ -153,7 +153,7 @@ func Test_download(t *testing.T) {
 			dc: d.DownloadConfig{
 				URL:          "Fill me",
 				Store:        &testStore{map[string]testFileObject{}},
-				Prefix:       "pre/",
+				PathPrefix:   "pre/",
 				URLRegexp:    regexp.MustCompile(`.*()(/.*)`),
 				DedupeRegexp: regexp.MustCompile(`(.*)`),
 			},

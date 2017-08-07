@@ -27,10 +27,11 @@ const maximumWaitBetweenDownloadAttempts = time.Minute * time.Duration(8)
 // parameters to be passed through runFunctionWithRetry to the
 // download function.
 type DownloadConfig struct {
-	URL       string         // The URL of the file to download
-	Store     file.FileStore // The FileStore in which to place the file
-	Prefix    string         // The prefix to append to the file name after it's downloaded
-	URLRegexp *regexp.Regexp // The regular expression to apply to the URL to create the filename.
+	URL        string         // The URL of the file to download
+	Store      file.FileStore // The FileStore in which to place the file
+	PathPrefix string         // The prefix to attach to the file's path after it's downloaded
+	FilePrefix string         // The prefix to attach to the filename after it's downloaded
+	URLRegexp  *regexp.Regexp // The regular expression to apply to the URL to create the filename.
 	// The first matching group will go before the timestamp, the second after.
 	DedupeRegexp *regexp.Regexp // The regexp to apply to the filename to determine the directory to dedupe in.
 }
@@ -74,9 +75,8 @@ func Download(config interface{}) (error, bool) {
 	}
 
 	// Get a handle on our object in GCS where we will store the file
-	timestamp := time.Now().UTC().Format("20060102T150402Z-")
 	urlMatches := dc.URLRegexp.FindAllStringSubmatch(dc.URL, -1)
-	filename := dc.Prefix + urlMatches[0][1] + timestamp + urlMatches[0][2]
+	filename := dc.PathPrefix + urlMatches[0][1] + dc.FilePrefix + urlMatches[0][2]
 	obj := dc.Store.GetFile(filename)
 	w := obj.GetWriter()
 
