@@ -7,7 +7,7 @@ import (
 	"log"
 	"math/rand"
 	"net/http"
-	"strings"
+	"regexp"
 	"time"
 
 	"github.com/m-lab/downloader/file"
@@ -30,7 +30,9 @@ type DownloadConfig struct {
 	URL       string         // The URL of the file to download
 	Store     file.FileStore // The FileStore in which to place the file
 	Prefix    string         // The prefix to append to the file name after it's downloaded
-	BackChars int            // The number of extra characters from the URL to include in the file name
+	URLRegexp *regexp.Regexp // The regular expression to apply to the URL to create the filename.
+	// The first matching group will go before the timestamp, the second after.
+	DedupeRegexp *regexp.Regexp // The regexp to apply to the filename to determine the directory to dedupe in.
 }
 
 // GenUniformSleepTime generatres a random time to sleep (in hours)
@@ -72,8 +74,10 @@ func Download(config interface{}) (error, bool) {
 	}
 
 	// Get a handle on our object in GCS where we will store the file
-	filename := dc.URL[strings.LastIndex(dc.URL, "/")+1-dc.BackChars:]
-	obj := dc.Store.GetFile(dc.Prefix + filename)
+	timestamp := time.Now().UTC().Format("20060102T150402Z")
+	urlMatches := dc.URLRegexp.FindAllStringSubmatch(dc.URL, -1)
+	filename := dc.Prefix + urlMatches[0][1] + timestamp + urlMatches[0][2]
+	obj := dc.Store.GetFile(filename)
 	w := obj.GetWriter()
 
 	// Move the file into GCS
@@ -85,7 +89,7 @@ func Download(config interface{}) (error, bool) {
 	resp.Body.Close()
 
 	// Check to make sure we didn't just download a duplicate, and delete it if we did.
-	if !IsFileNew(dc.Store, dc.Prefix+filename, dc.Prefix+filename[:dc.BackChars]) {
+	if !IsFileNew(dc.Store, filename, dc.DedupeRegexp.FindAllStringSubmatch(filename, -1)[0][1]) {
 		err = obj.DeleteFile()
 		if err != nil {
 			metrics.DownloaderErrorCount.

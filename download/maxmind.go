@@ -1,10 +1,15 @@
 package download
 
 import (
+	"regexp"
+
 	"github.com/m-lab/downloader/file"
 	"github.com/m-lab/downloader/metrics"
 	"github.com/prometheus/client_golang/prometheus"
 )
+
+var maxmindURLToFilenameRegexp = regexp.MustCompile(`.*/()(.*)`)
+var maxmindFilenameToDedupeRegexp = regexp.MustCompile(`(.*/).*/.*`)
 
 // The list of URLs to download from Maxmind
 var MaxmindURLs []string = []string{
@@ -29,7 +34,8 @@ var MaxmindURLs []string = []string{
 func DownloadMaxmindFiles(urls []string, timestamp string, store file.FileStore) error {
 	var lastErr error = nil
 	for _, url := range urls {
-		dc := DownloadConfig{URL: url, Store: store, Prefix: "Maxmind/" + timestamp, BackChars: 0}
+		dc := DownloadConfig{URL: url, Store: store, Prefix: "Maxmind/" + timestamp,
+			URLRegexp: maxmindURLToFilenameRegexp, DedupeRegexp: maxmindFilenameToDedupeRegexp}
 		if err := RunFunctionWithRetry(Download, dc, waitAfterFirstDownloadFailure,
 			maximumWaitBetweenDownloadAttempts); err != nil {
 
