@@ -8,6 +8,7 @@ import (
 	"math/rand"
 	"net/http"
 	"net/http/httptest"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -100,10 +101,11 @@ func Test_download(t *testing.T) {
 	}{
 		{
 			dc: d.DownloadConfig{
-				URL:       "Fill me",
-				Store:     &testStore{map[string]testFileObject{}},
-				Prefix:    "pre/",
-				BackChars: 0,
+				URL:          "Fill me",
+				Store:        &testStore{map[string]testFileObject{}},
+				Prefix:       "pre/",
+				URLRegexp:    regexp.MustCompile(`.*()(/.*)`),
+				DedupeRegexp: regexp.MustCompile(`(.*)`),
 			},
 			postfix: "portGarbage",
 			resBool: false,
@@ -111,10 +113,11 @@ func Test_download(t *testing.T) {
 		},
 		{
 			dc: d.DownloadConfig{
-				URL:       "Fill me",
-				Store:     &testStore{map[string]testFileObject{}},
-				Prefix:    "pre/",
-				BackChars: 0,
+				URL:          "Fill me",
+				Store:        &testStore{map[string]testFileObject{}},
+				Prefix:       "pre/",
+				URLRegexp:    regexp.MustCompile(`.*()(/.*)`),
+				DedupeRegexp: regexp.MustCompile(`(.*)`),
 			},
 			postfix: "/file.error",
 			resBool: false,
@@ -122,10 +125,11 @@ func Test_download(t *testing.T) {
 		},
 		{
 			dc: d.DownloadConfig{
-				URL:       "Fill me",
-				Store:     &testStore{map[string]testFileObject{}},
-				Prefix:    "pre/",
-				BackChars: 0,
+				URL:          "Fill me",
+				Store:        &testStore{map[string]testFileObject{}},
+				Prefix:       "pre/",
+				URLRegexp:    regexp.MustCompile(`.*()(/.*)`),
+				DedupeRegexp: regexp.MustCompile(`(.*)`),
 			},
 			postfix: "/file.copyFail",
 			resBool: false,
@@ -137,8 +141,9 @@ func Test_download(t *testing.T) {
 				Store: &testStore{map[string]testFileObject{
 					"pre/file.del/dup": testFileObject{name: "pre/file.del/dup", data: bytes.NewBuffer(nil), md5: []byte("NEW FILE")},
 				}},
-				Prefix:    "pre/",
-				BackChars: 0,
+				Prefix:       "pre/",
+				URLRegexp:    regexp.MustCompile(`.*()(/.*)`),
+				DedupeRegexp: regexp.MustCompile(`(pre/)`),
 			},
 			postfix: "/file.deleteFail",
 			resBool: true,
@@ -146,10 +151,11 @@ func Test_download(t *testing.T) {
 		},
 		{
 			dc: d.DownloadConfig{
-				URL:       "Fill me",
-				Store:     &testStore{map[string]testFileObject{}},
-				Prefix:    "pre/",
-				BackChars: 0,
+				URL:          "Fill me",
+				Store:        &testStore{map[string]testFileObject{}},
+				Prefix:       "pre/",
+				URLRegexp:    regexp.MustCompile(`.*()(/.*)`),
+				DedupeRegexp: regexp.MustCompile(`(.*)`),
 			},
 			postfix: "/file.success",
 			resBool: false,

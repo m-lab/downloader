@@ -13,6 +13,9 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
+var routeviewsURLToFilenameRegexp = regexp.MustCompile(`.*(\d{4}/\d{2}/)(.*)`)
+var routeviewsFilenameToDedupeRegexp = regexp.MustCompile(`(.*)`)
+
 // urlAndSeqNum is a struct for bundling the Routeview URL and Seqnum
 // together into a single struct. This is the return value of the
 // genRouteviewsURLs function
@@ -34,7 +37,9 @@ func DownloadCaidaRouteviewsFiles(logFileURL string, directory string, lastDownl
 		return err
 	}
 	for _, urlAndID := range routeViewsURLsAndIDs {
-		dc := DownloadConfig{URL: urlAndID.URL, Store: store, Prefix: directory, BackChars: 8}
+		// TODO(JosephMarques): Restructure entire backchars/dedupe system. It just doesn't work well at the moment. Some sort of selection and regex function.
+		dc := DownloadConfig{URL: urlAndID.URL, Store: store, Prefix: directory,
+			URLRegexp: routeviewsURLToFilenameRegexp, DedupeRegexp: routeviewsFilenameToDedupeRegexp}
 		if err := RunFunctionWithRetry(Download, dc, waitAfterFirstDownloadFailure,
 			maximumWaitBetweenDownloadAttempts); err != nil {
 
@@ -58,11 +63,7 @@ func GenRouteViewURLs(logFileURL string, lastDownloaded int) ([]UrlAndSeqNum, er
 	var urlsAndIDs []UrlAndSeqNum = nil
 
 	// Compile parser regex
-	re, err := regexp.Compile(`(\d{1,6})\s*(\d{10})\s*(.*)`)
-	if err != nil {
-		metrics.RouteviewsURLErrorCount.With(prometheus.Labels{"source": "Regex Compilation Error"}).Inc()
-		return nil, err
-	}
+	re := regexp.MustCompile(`(\d{1,6})\s*(\d{10})\s*(.*)`)
 
 	// Get the generation log file from the routeviews website
 	resp, err := http.Get(logFileURL)
