@@ -15,4 +15,4 @@ gcloud auth activate-service-account --key-file ${HOME}/gcloud-service-key.json
 ./travis/substitute_values.sh ./deployment/templates/ GITHUB_COMMIT $TRAVIS_COMMIT PROJECT_NAME ${PROJECT_NAME} BUCKET_NAME ${BUCKET_NAME}
 
 
-./travis/kubectl.sh $PROJECT_NAME $CLUSTER_NAME kubectl apply -f ./deployment/templates/deploy-downloader.yaml
+./kubectl.sh $PROJECT_NAME $CLUSTER_NAME kubectl apply -f ./deployment/templates/deploy-downloader.yaml
