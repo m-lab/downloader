@@ -30,23 +30,24 @@ func TestDownloadCaidaRouteviewsFiles(t *testing.T) {
 			fsto:    &testStore{map[string]testFileObject{}},
 			res:     nil,
 		},
-		/*{
+		{
 			logFile: "/logFile2",
 			dir:     "test2/",
 			lastD:   0,
 			lastS:   3364,
 			fsto:    &testStore{map[string]testFileObject{}},
-			res:     errors.New(""),
-		},*/
+			res:     errors.New("2"),
+		},
 		{
 			logFile: "portGarbage",
 			dir:     "test3/",
 			lastD:   0,
 			lastS:   0,
 			fsto:    &testStore{map[string]testFileObject{}},
-			res:     errors.New(""),
+			res:     errors.New("3"),
 		},
 	}
+	d.MaximumWaitBetweenDownloadAttempts = 0
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Path
 		if strings.HasSuffix(path, "logFile1") {
@@ -67,9 +68,9 @@ func TestDownloadCaidaRouteviewsFiles(t *testing.T) {
 3364	1497803191	2017/06/routeviews-rv2-20170617-1200.pfx2as.gz
 3365	1497889838	2018/06/routeviews-rv2-20170617-1000.pfx2as.gz`)
 			return
-		} /*
-					if strings.HasSuffix(path, "logFile2") {
-						fmt.Fprint(w, `# Format: 1
+		}
+		if strings.HasSuffix(path, "logFile2") {
+			fmt.Fprint(w, `# Format: 1
 			# Fields: seqnum timestamp path
 			# Generated: 2017-07-16 09:26:29 -0700
 			# --------------------------------------------------------------------------
@@ -84,9 +85,9 @@ func TestDownloadCaidaRouteviewsFiles(t *testing.T) {
 			# --------------------------------------------------------------------------
 			3363	1497717708	2017/06/routeviews-rv2-20170616-1200.pfx2as.gz
 			3364	1497803191	2017/06/routeviews-rv2-20170617-1200.pfx2as.gz
-			3365	1497889838	2017/06/deleteFail`)
-						return
-					}*/
+			3365	1497889838	2017/06/copyFail`)
+			return
+		}
 		fmt.Fprint(w, r.URL.String())
 	}))
 	for _, test := range tests {
