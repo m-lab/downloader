@@ -35,7 +35,7 @@ spec:
           value: "{{BUCKET_NAME}}"
         - name: GOOGLE_APPLICATION_CREDENTIALS
           value: /var/secrets/google/key.json
-        image: gcr.io/mlab-sandbox/downloader:{{GITHUB_COMMIT}}
+        image: gcr.io/{{PROJECT_NAME}}/downloader:{{GITHUB_COMMIT}}
         volumeMounts:
           - name: google-cloud-key
             mountPath: /var/secrets/google
