@@ -44,7 +44,9 @@ func (store *StoreGCS) NamesToMD5(prefix string) map[string][]byte {
 	var namesAndMD5s map[string][]byte = make(map[string][]byte)
 	for object, err := objects.Next(); err != iterator.Done; object, err = objects.Next() {
 		if err != nil {
-			metrics.DownloaderErrorCount.With(prometheus.Labels{"source": "Unkown Error in iterator in checkIfHashIsUniqueInList"}).Inc()
+			metrics.DownloaderErrorCount.
+				With(prometheus.Labels{"source": "Unkown Error in iterator in checkIfHashIsUniqueInList"}).
+				Inc()
 		}
 		namesAndMD5s[object.Name] = object.MD5
 	}
