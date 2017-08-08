@@ -7,7 +7,7 @@ import (
 	"log"
 	"math/rand"
 	"net/http"
-	"strings"
+	"regexp"
 	"time"
 
 	"github.com/m-lab/downloader/file"
@@ -17,20 +17,23 @@ import (
 
 // The time (in minutes) to wait before the first retry of a failed
 // download
-const waitAfterFirstDownloadFailure = time.Minute * time.Duration(1)
+var WaitAfterFirstDownloadFailure = time.Minute * time.Duration(1)
 
 // The maximum time (in minutes) to wait in between download attempts
-const maximumWaitBetweenDownloadAttempts = time.Minute * time.Duration(8)
+var MaximumWaitBetweenDownloadAttempts = time.Minute * time.Duration(8)
 
 // TODO(JosephMarques): Find a better method than using
 // backChars. Possibly regex?  downloadConfig is a struct for bundling
 // parameters to be passed through runFunctionWithRetry to the
 // download function.
 type DownloadConfig struct {
-	URL       string         // The URL of the file to download
-	Store     file.FileStore // The FileStore in which to place the file
-	Prefix    string         // The prefix to append to the file name after it's downloaded
-	BackChars int            // The number of extra characters from the URL to include in the file name
+	URL        string         // The URL of the file to download
+	Store      file.FileStore // The FileStore in which to place the file
+	PathPrefix string         // The prefix to attach to the file's path after it's downloaded
+	FilePrefix string         // The prefix to attach to the filename after it's downloaded
+	URLRegexp  *regexp.Regexp // The regular expression to apply to the URL to create the filename.
+	// The first matching group will go before the timestamp, the second after.
+	DedupeRegexp *regexp.Regexp // The regexp to apply to the filename to determine the directory to dedupe in.
 }
 
 // GenUniformSleepTime generatres a random time to sleep (in hours)
@@ -72,8 +75,9 @@ func Download(config interface{}) (error, bool) {
 	}
 
 	// Get a handle on our object in GCS where we will store the file
-	filename := dc.URL[strings.LastIndex(dc.URL, "/")+1-dc.BackChars:]
-	obj := dc.Store.GetFile(dc.Prefix + filename)
+	urlMatches := dc.URLRegexp.FindAllStringSubmatch(dc.URL, -1)
+	filename := dc.PathPrefix + urlMatches[0][1] + dc.FilePrefix + urlMatches[0][2]
+	obj := dc.Store.GetFile(filename)
 	w := obj.GetWriter()
 
 	// Move the file into GCS
@@ -85,7 +89,7 @@ func Download(config interface{}) (error, bool) {
 	resp.Body.Close()
 
 	// Check to make sure we didn't just download a duplicate, and delete it if we did.
-	if !IsFileNew(dc.Store, dc.Prefix+filename, dc.Prefix+filename[:dc.BackChars]) {
+	if !IsFileNew(dc.Store, filename, dc.DedupeRegexp.FindAllStringSubmatch(filename, -1)[0][1]) {
 		err = obj.DeleteFile()
 		if err != nil {
 			metrics.DownloaderErrorCount.

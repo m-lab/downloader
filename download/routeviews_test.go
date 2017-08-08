@@ -36,7 +36,7 @@ func TestDownloadCaidaRouteviewsFiles(t *testing.T) {
 			lastD:   0,
 			lastS:   3364,
 			fsto:    &testStore{map[string]testFileObject{}},
-			res:     errors.New(""),
+			res:     errors.New("2"),
 		},
 		{
 			logFile: "portGarbage",
@@ -44,9 +44,10 @@ func TestDownloadCaidaRouteviewsFiles(t *testing.T) {
 			lastD:   0,
 			lastS:   0,
 			fsto:    &testStore{map[string]testFileObject{}},
-			res:     errors.New(""),
+			res:     errors.New("3"),
 		},
 	}
+	d.MaximumWaitBetweenDownloadAttempts = 0
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Path
 		if strings.HasSuffix(path, "logFile1") {
@@ -84,7 +85,7 @@ func TestDownloadCaidaRouteviewsFiles(t *testing.T) {
 # --------------------------------------------------------------------------
 3363	1497717708	2017/06/routeviews-rv2-20170616-1200.pfx2as.gz
 3364	1497803191	2017/06/routeviews-rv2-20170617-1200.pfx2as.gz
-3365	1497889838	2017/06/deleteFail`)
+3365	1497889838	2017/06/copyFail`)
 			return
 		}
 		fmt.Fprint(w, r.URL.String())

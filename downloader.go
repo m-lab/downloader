@@ -48,7 +48,7 @@ func loopOverURLsForever(bucketName string) {
 	lastDownloadedV4 := 0
 	lastDownloadedV6 := 0
 	for {
-		timestamp := time.Now().Format("2006/01/02/15:04:05-")
+		timestamp := time.Now().Format("2006/01/02/")
 		bkt, err := constructBucketHandle(bucketName)
 		if err != nil {
 			continue
