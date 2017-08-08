@@ -18,7 +18,10 @@ import (
 // genRouteviewsURLs function
 type UrlAndSeqNum struct {
 	URL    string // The URL pointing to the file we need to download
-	Seqnum int    // The seqnum of the file, as given in the routeview generation log file
+	Seqnum int    // The seqnum of the file, as given in the
+	// routeview generation log file. An example of
+	// the generation log file can be found at:
+	// http://data.caida.org/datasets/routing/routeviews-prefix2as/pfx2as-creation.log
 }
 
 // DownloadRouteviewsFiles takes a url pointing to a routeview
@@ -37,7 +40,6 @@ func DownloadCaidaRouteviewsFiles(logFileURL string, directory string, lastDownl
 		dc := DownloadConfig{URL: urlAndID.URL, Store: store, Prefix: directory, BackChars: 8}
 		if err := RunFunctionWithRetry(Download, dc, waitAfterFirstDownloadFailure,
 			maximumWaitBetweenDownloadAttempts); err != nil {
-
 			lastErr = err
 			metrics.FailedDownloadCount.With(prometheus.Labels{"download_type": directory}).Inc()
 		}

@@ -32,7 +32,6 @@ func DownloadMaxmindFiles(urls []string, timestamp string, store file.FileStore)
 		dc := DownloadConfig{URL: url, Store: store, Prefix: "Maxmind/" + timestamp, BackChars: 0}
 		if err := RunFunctionWithRetry(Download, dc, waitAfterFirstDownloadFailure,
 			maximumWaitBetweenDownloadAttempts); err != nil {
-
 			lastErr = err
 			metrics.FailedDownloadCount.With(prometheus.Labels{"download_type": "Maxmind"}).Inc()
 		}
