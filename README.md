@@ -24,18 +24,13 @@ into the protected environment variable, either through the Travis website or
 through encrypting it in the .travis.yml file.
 
 ### Deployment Configuration
-The deployment scripts also expect a number of other environment variables to be
-set:
-
-- PROJECT_NAME_XXX: Determines the name of the project to deploy to.
-- CLUSTER_NAME_XXX: Determines the GKE cluster to deploy the image to within the
-  project.
-- BUCKET_NAME_XXX: Determines the bucket within the project for the downloaded
-  files to be placed in.
-- CLOUDSDK_COMPUTE_ZONE: Determines the zone that we expect the cluster to be
-  located within.
-- DOCKER_IMAGE_NAME: Determines what we want to call the docker image in our
-  image repository.
+In addition to the service account, when setting up a new travis deployment, you
+need to configure the project name you're deploying to, the cluster name within
+that project, and the bucket name you want the data saved to. Those are all
+parameters passed into the deploy.sh command, along with the service account
+JSON key, encoded in base64 form. The deploy.sh command takes the form:
+`deploy.sh <project name> <cluster name> <bucket name> <base64 service account
+key text>`
 
 ## Kubernetes Secrets
 In order for downloader to be able to connect to GCS, it needs to have a service

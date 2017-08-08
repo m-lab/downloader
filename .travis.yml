@@ -22,7 +22,7 @@ deploy:
 #########################################
 ## Sandbox
 - provider: script
-  script: $TRAVIS_BUILD_DIR/deployment/deploy.sh mlab-sandbox downloader maxmind-feed-sandbox $GCLOUD_SERVICE_KEY_BOX
+  script: $TRAVIS_BUILD_DIR/deployment/deploy.sh mlab-sandbox downloader downloader-mlab-sandbox $GCLOUD_SERVICE_KEY_BOX
   skip_cleanup: true
   on:
     repo: m-lab/downloader
