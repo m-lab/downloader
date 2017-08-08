@@ -91,7 +91,7 @@ func TestGenUniformSleepTime(t *testing.T) {
 	}
 }
 
-func Test_download(t *testing.T) {
+func TestDownload(t *testing.T) {
 	tests := []struct {
 		dc      d.DownloadConfig
 		postfix string
