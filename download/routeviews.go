@@ -45,7 +45,6 @@ func DownloadCaidaRouteviewsFiles(logFileURL string, directory string, lastDownl
 			URLRegexp: routeviewsURLToFilenameRegexp, DedupeRegexp: routeviewsFilenameToDedupeRegexp}
 		if err := RunFunctionWithRetry(Download, dc, WaitAfterFirstDownloadFailure,
 			MaximumWaitBetweenDownloadAttempts); err != nil {
-
 			lastErr = err
 			metrics.FailedDownloadCount.With(prometheus.Labels{"download_type": directory}).Inc()
 		}
