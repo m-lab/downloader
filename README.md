@@ -29,16 +29,23 @@ need to configure the project name you're deploying to, the cluster name within
 that project, and the bucket name you want the data saved to. Those are all
 parameters passed into the deploy.sh command, along with the service account
 JSON key, encoded in base64 form. The deploy.sh command takes the form:
-`deploy.sh <project name> <cluster name> <bucket name> <base64 service account
-key text>`
+``` shell
+deploy.sh <project name> <cluster name> <bucket name> \
+    <base64 service account key text>
+```
 
 ## Kubernetes Secrets
 In order for downloader to be able to connect to GCS, it needs to have a service
 account with access to GCS. You can use the same service account used for travis
 deployment, if you wish. But you need to store the key file in a kubernetes
 secret, named downloader-app-key, so that the deployment config can find and
-mount it for use by the app. You can set it with: `kubectl create secret generic
-downloader-app-key --from-file=key.json=/path/to/key.json`
+mount it for use by the app. You can set it with: 
+
+``` shell
+kubectl create secret generic \
+    downloader-app-key --from-file=key.json=/path/to/key.json
+
+```
 
 ## Cluster Creation
 The default cluster size is enough for the downloader, but you need to be sure
