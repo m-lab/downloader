@@ -60,12 +60,20 @@ func loopOverURLsForever(bucketName string) {
 			log.Println(maxmindErr)
 		}
 
-		routeviewIPv4Err := download.DownloadCaidaRouteviewsFiles("http://data.caida.org/datasets/routing/routeviews-prefix2as/pfx2as-creation.log", "RouteViewIPv4/", &lastDownloadedV4, fileStore)
+		routeviewIPv4Err := download.DownloadCaidaRouteviewsFiles(
+			"http://data.caida.org/datasets/routing/routeviews-prefix2as/pfx2as-creation.log",
+			"RouteViewIPv4/",
+			&lastDownloadedV4,
+			fileStore)
 		if routeviewIPv4Err != nil {
 			log.Println(routeviewIPv4Err)
 		}
 
-		routeviewIPv6Err := download.DownloadCaidaRouteviewsFiles("http://data.caida.org/datasets/routing/routeviews6-prefix2as/pfx2as-creation.log", "RouteViewIPv6/", &lastDownloadedV6, fileStore)
+		routeviewIPv6Err := download.DownloadCaidaRouteviewsFiles(
+			"http://data.caida.org/datasets/routing/routeviews6-prefix2as/pfx2as-creation.log",
+			"RouteViewIPv6/",
+			&lastDownloadedV6,
+			fileStore)
 		if routeviewIPv6Err != nil {
 			log.Println(routeviewIPv6Err)
 		}
