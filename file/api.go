@@ -31,16 +31,16 @@ type FileObject interface {
 //// actual implementation of store
 
 type StoreGCS struct {
-	bkt *storage.BucketHandle
+	Bkt *storage.BucketHandle
 }
 
 func (store *StoreGCS) GetFile(name string) FileObject {
-	return &FileObjectGCS{obj: store.bkt.Object(name)}
+	return &FileObjectGCS{obj: store.Bkt.Object(name)}
 }
 
 func (store *StoreGCS) NamesToMD5(prefix string) map[string][]byte {
 	ctx, _ := context.WithTimeout(context.Background(), contextTimeout)
-	objects := store.bkt.Objects(ctx, &storage.Query{"", prefix, false})
+	objects := store.Bkt.Objects(ctx, &storage.Query{"", prefix, false})
 	var namesAndMD5s map[string][]byte = make(map[string][]byte)
 	for object, err := objects.Next(); err != iterator.Done; object, err = objects.Next() {
 		if err != nil {
