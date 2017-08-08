@@ -17,4 +17,4 @@ RUN go install github.com/m-lab/downloader
 #from golang:onbuild
 CMD /go/bin/downloader -bucket=${DOWNLOADER_BUCKET}
 # Expose endpoint for prometheus metrics
-EXPOSE 8080
+EXPOSE 9090

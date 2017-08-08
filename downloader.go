@@ -36,7 +36,7 @@ func main() {
 	rand.Seed(time.Now().UTC().UnixNano())
 	metrics.SetupPrometheus()
 	go func() {
-		log.Fatal(http.ListenAndServe(":8080", nil))
+		log.Fatal(http.ListenAndServe(":9090", nil))
 	}()
 	loopOverURLsForever(*bucketName)
 }
