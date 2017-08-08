@@ -40,7 +40,6 @@ func DownloadMaxmindFiles(urls []string, timestamp string, store file.FileStore)
 			DedupeRegexp: maxmindFilenameToDedupeRegexp}
 		if err := RunFunctionWithRetry(Download, dc, WaitAfterFirstDownloadFailure,
 			MaximumWaitBetweenDownloadAttempts); err != nil {
-
 			lastErr = err
 			metrics.FailedDownloadCount.With(prometheus.Labels{"download_type": "Maxmind"}).Inc()
 		}
