@@ -11,7 +11,7 @@ GCLOUD_SERVICE_KEY=${4:?Please enter the base64 encoded json keyfile: $USAGE}
 echo $GCLOUD_SERVICE_KEY | base64 --decode -i > ${HOME}/gcloud-service-key.json
 gcloud auth activate-service-account --key-file ${HOME}/gcloud-service-key.json
 
-./travis/build_and_push_container.sh gcr.io/${PROJECT_NAME}/downloader:$TRAVIS_COMMIT PROJECT_NAME
+./travis/build_and_push_container.sh gcr.io/${PROJECT_NAME}/downloader:$TRAVIS_COMMIT $PROJECT_NAME
 
 ./travis/substitute_values.sh ./deployment/templates/ GITHUB_COMMIT $TRAVIS_COMMIT PROJECT_NAME ${PROJECT_NAME} BUCKET_NAME ${BUCKET_NAME}
 
