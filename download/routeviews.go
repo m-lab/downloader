@@ -21,7 +21,10 @@ var routeviewsFilenameToDedupeRegexp = regexp.MustCompile(`(.*)`)
 // genRouteviewsURLs function
 type UrlAndSeqNum struct {
 	URL    string // The URL pointing to the file we need to download
-	Seqnum int    // The seqnum of the file, as given in the routeview generation log file
+	Seqnum int    // The seqnum of the file, as given in the
+	// routeview generation log file. An example of
+	// the generation log file can be found at:
+	// http://data.caida.org/datasets/routing/routeviews-prefix2as/pfx2as-creation.log
 }
 
 // DownloadRouteviewsFiles takes a url pointing to a routeview
