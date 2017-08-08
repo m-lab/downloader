@@ -15,22 +15,6 @@ cache:
 services:
   - docker
 
-# Set env vars
-env:
-  global:
-    - PROJECT_NAME_BOX=mlab-sandbox
-    - CLUSTER_NAME_BOX=downloader
-    - BUCKET_NAME_BOX=maxmind-feed-sandbox
-    - PROJECT_NAME_STG=mlab-staging
-    - CLUSTER_NAME_STG=downloader
-    - BUCKET_NAME_STG=downloader-mlab-staging
-    - PROJECT_NAME_PRD=mlab-oti
-    - CLUSTER_NAME_PRD=downloader
-    - BUCKET_NAME_PRD=downloader-mlab-oti
-    - CLOUDSDK_COMPUTE_ZONE=us-central1-a
-    - DOCKER_IMAGE_NAME=downloader
-    - NODE_ENV=CI
-
 before_deploy:
   - $TRAVIS_BUILD_DIR/travis/install_gcloud.sh kubectl
 
@@ -49,7 +33,7 @@ deploy:
 #########################################
 ## Staging
 - provider: script
-  script: $TRAVIS_BUILD_DIR/deployment/deploy-staging.sh
+  script: $TRAVIS_BUILD_DIR/deployment/deploy.sh mlab-staging downloader downloader-mlab-staging $GCLOUD_SERVICE_KEY_STG
   skip_cleanup: true
   on:
     repo: m-lab/downloader
@@ -58,7 +42,7 @@ deploy:
 #########################################
 ## Production
 - provider: script
-  script: $TRAVIS_BUILD_DIR/deployment/deploy-production.sh
+  script: $TRAVIS_BUILD_DIR/deployment/deploy.sh mlab-oti downloader downloader-mlab-oti $GCLOUD_SERVICE_KEY_PRD
   skip_cleanup: true
   on:
     repo: m-lab/downloader
