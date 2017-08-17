@@ -15,6 +15,6 @@ RUN go install github.com/m-lab/downloader
 
 # Builds, gets dependencies, and runs
 #from golang:onbuild
-CMD /go/bin/downloader -bucket=${DOWNLOADER_BUCKET}
+CMD /go/bin/downloader -bucket=${DOWNLOADER_BUCKET} -project=${PROJECT_NAME}
 # Expose endpoint for prometheus metrics
 EXPOSE 9090
