@@ -43,15 +43,16 @@ func main() {
 	go func() {
 		log.Fatal(http.ListenAndServe(":9090", nil))
 	}()
-	t := getPubSubTopic("downloader-new-files", *projectName)
+	t := getPubSubTopicOrDie("downloader-new-files", *projectName)
 	loopOverURLsForever(*bucketName, t)
 }
 
 // getPubSubTopic takes a topic name and a project name and uses it to
 // get a pub/sub topic. It will also check to make sure that the topic
 // exists, delibrately fatally logging if it does not.
-func getPubSubTopic(topicName string, projectName string) *pubsub.Topic {
-	ctx := context.Background()
+func getPubSubTopicOrDie(topicName string, projectName string) *pubsub.Topic {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
 	client, err := pubsub.NewClient(ctx, projectName)
 	if err != nil {
 		log.Fatal(err)
