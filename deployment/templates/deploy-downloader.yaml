@@ -33,6 +33,8 @@ spec:
       - env:
         - name: DOWNLOADER_BUCKET
           value: "{{BUCKET_NAME}}"
+        - name: PROJECT_NAME
+          value: {{PROJECT_NAME}}
         - name: GOOGLE_APPLICATION_CREDENTIALS
           value: /var/secrets/google/key.json
         image: gcr.io/{{PROJECT_NAME}}/downloader:{{GITHUB_COMMIT}}

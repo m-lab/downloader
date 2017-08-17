@@ -23,6 +23,8 @@ key by `cat key.json | base64 -w 0` and putting the output from that command
 into the protected environment variable, either through the Travis website or
 through encrypting it in the .travis.yml file.
 
+The service account also needs the pubsub publisher and pubsub viewer roles.
+
 ### Deployment Configuration
 In addition to the service account, when setting up a new travis deployment, you
 need to configure the project name you're deploying to, the cluster name within
@@ -53,6 +55,10 @@ to give it read/write permissions for GCS when you create the cluster.
 
 However, for prometheus monitoring, you must make an extra node pool, as
 described in the readme of the prometheus-support repository.
+
+## Pub/Sub Topic
+The downloader also expects a pub/sub topic named "downloader-new-files" to
+exist.
 
 ## Prometheus Monitoring
 Most of the work for prometheus monitoring is done in the prometheus-support

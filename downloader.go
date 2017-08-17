@@ -9,6 +9,7 @@ import (
 
 	"golang.org/x/net/context"
 
+	"cloud.google.com/go/pubsub"
 	"cloud.google.com/go/storage"
 	"github.com/m-lab/downloader/download"
 	"github.com/m-lab/downloader/file"
@@ -29,22 +30,48 @@ const windowForRandomTimeBetweenUpdateChecks = 4 * time.Hour
 // command line, and kicks off the actual downloader loop
 func main() {
 	bucketName := flag.String("bucket", "", "Specify the bucket name to store the results in.")
+	projectName := flag.String("project", "", "Specify the project name to send the pub/sub in.")
 	flag.Parse()
 	if *bucketName == "" {
 		log.Fatal("NO BUCKET SPECIFIED!!!")
+	}
+	if *projectName == "" {
+		log.Fatal("NO PROJECT SPECIFIED!!!")
 	}
 	rand.Seed(time.Now().UTC().UnixNano())
 	metrics.SetupPrometheus()
 	go func() {
 		log.Fatal(http.ListenAndServe(":9090", nil))
 	}()
-	loopOverURLsForever(*bucketName)
+	t := getPubSubTopicOrDie("downloader-new-files", *projectName)
+	loopOverURLsForever(*bucketName, t)
+}
+
+// getPubSubTopic takes a topic name and a project name and uses it to
+// get a pub/sub topic. It will also check to make sure that the topic
+// exists, delibrately fatally logging if it does not.
+func getPubSubTopicOrDie(topicName string, projectName string) *pubsub.Topic {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+	client, err := pubsub.NewClient(ctx, projectName)
+	if err != nil {
+		log.Fatal(err)
+	}
+	topic := client.Topic(topicName)
+	ok, err := topic.Exists(ctx)
+	if err != nil {
+		log.Fatal(err)
+	}
+	if !ok {
+		log.Fatal("Topic: " + topicName + " does not exist!")
+	}
+	return topic
 }
 
 // loopOverURLsForever takes a bucketName, pointing to a GCS bucket,
 // and then tries to download the files over and over again until the
 // end of time (waiting an average of 8 hours in between attempts)
-func loopOverURLsForever(bucketName string) {
+func loopOverURLsForever(bucketName string, t *pubsub.Topic) {
 	lastDownloadedV4 := 0
 	lastDownloadedV6 := 0
 	for {
@@ -79,6 +106,14 @@ func loopOverURLsForever(bucketName string) {
 		}
 
 		if maxmindErr == nil && routeviewIPv4Err == nil && routeviewIPv6Err == nil {
+			ctx := context.Background()
+			message := t.Publish(ctx, &pubsub.Message{Data: []byte("reload")})
+			_, sendErr := message.Get(ctx)
+			if sendErr != nil {
+				log.Println(sendErr)
+				metrics.DownloaderErrorCount.With(
+					prometheus.Labels{"source": "Couldn't send Pub/Sub message!"}).Inc()
+			}
 			metrics.LastSuccessTime.SetToCurrentTime()
 		}
 		time.Sleep(download.GenUniformSleepTime(averageHoursBetweenUpdateChecks, windowForRandomTimeBetweenUpdateChecks))
