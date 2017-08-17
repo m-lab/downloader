@@ -23,6 +23,8 @@ key by `cat key.json | base64 -w 0` and putting the output from that command
 into the protected environment variable, either through the Travis website or
 through encrypting it in the .travis.yml file.
 
+The service account also needs the pubsub publisher and pubsub viewer roles.
+
 ### Deployment Configuration
 In addition to the service account, when setting up a new travis deployment, you
 need to configure the project name you're deploying to, the cluster name within
