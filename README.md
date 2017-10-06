@@ -58,7 +58,8 @@ described in the readme of the prometheus-support repository.
 
 ## Pub/Sub Topic
 The downloader also expects a pub/sub topic named "downloader-new-files" to
-exist.
+exist. The topic must be created in the project that the downloader is running
+in, otherwise the downloader will not start.
 
 ## Prometheus Monitoring
 Most of the work for prometheus monitoring is done in the prometheus-support
