@@ -1,0 +1,49 @@
+language: go
+
+go:
+  - 1.8
+
+go_import_path: github.com/m-lab/downloader
+
+  
+# Cache Gcloud SDK between commands
+cache:
+  directories:
+    - "$HOME/google-cloud-sdk/"
+
+# Install services
+services:
+  - docker
+
+before_deploy:
+  - $TRAVIS_BUILD_DIR/travis/install_gcloud.sh kubectl
+
+deploy:
+#########################################
+## Sandbox
+- provider: script
+  script: $TRAVIS_BUILD_DIR/deployment/deploy.sh mlab-sandbox downloader downloader-mlab-sandbox $GCLOUD_SERVICE_KEY_BOX
+  skip_cleanup: true
+  on:
+    repo: m-lab/downloader
+    all_branches: true
+    condition: $TRAVIS_BRANCH == sandbox-* && $TRAVIS_EVENT_TYPE == push
+
+
+#########################################
+## Staging
+- provider: script
+  script: $TRAVIS_BUILD_DIR/deployment/deploy.sh mlab-staging downloader downloader-mlab-staging $GCLOUD_SERVICE_KEY_STG
+  skip_cleanup: true
+  on:
+    repo: m-lab/downloader
+    branch: integration
+
+#########################################
+## Production
+- provider: script
+  script: $TRAVIS_BUILD_DIR/deployment/deploy.sh mlab-oti downloader downloader-mlab-oti $GCLOUD_SERVICE_KEY_PRD
+  skip_cleanup: true
+  on:
+    repo: m-lab/downloader
+    branch: master
