@@ -42,7 +42,7 @@ func TestDownloadMaxmindFiles(t *testing.T) {
 	for _, test := range tests {
 		res := d.DownloadMaxmindFiles(test.urls, test.timestamp, test.fsto)
 		if (res == nil && test.res != nil) || (res != nil && test.res == nil) {
-			t.Errorf("Expected %s, got %s for %+v\n\n, file sto: %+v, fstoaddr: ", test.res, res, test, test.fsto, &test.fsto)
+			t.Errorf("Expected %s, got %s for %+v\n\n, file sto: %+v, fstoaddr: %+v", test.res, res, test, test.fsto, &test.fsto)
 		}
 	}
 
