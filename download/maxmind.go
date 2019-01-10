@@ -14,15 +14,10 @@ var maxmindFilenameToDedupeRegexp = regexp.MustCompile(`(.*/).*/.*`)
 
 // The list of URLs to download from Maxmind
 var MaxmindURLs []string = []string{
-	"http://geolite.maxmind.com/download/geoip/database/GeoLiteCity.dat.gz",
 	"http://geolite.maxmind.com/download/geoip/database/GeoLiteCityv6-beta/GeoLiteCityv6.dat.gz",
-	"http://download.maxmind.com/download/geoip/database/asnum/GeoIPASNum.dat.gz",
 	"http://download.maxmind.com/download/geoip/database/asnum/GeoIPASNumv6.dat.gz",
 	"http://download.maxmind.com/download/geoip/database/asnum/GeoIPASNum2v6.zip",
-	"http://download.maxmind.com/download/geoip/database/asnum/GeoIPASNum2.zip",
-	"http://geolite.maxmind.com/download/geoip/database/GeoLiteCity_CSV/GeoLiteCity-latest.zip",
 	"http://geolite.maxmind.com/download/geoip/database/GeoLiteCityv6-beta/GeoLiteCityv6.csv.gz",
-	"http://geolite.maxmind.com/download/geoip/database/GeoIPCountryCSV.zip",
 	"http://geolite.maxmind.com/download/geoip/database/GeoIPv6.csv.gz",
 	"http://geolite.maxmind.com/download/geoip/database/GeoLite2-City-CSV.zip",
 	"http://geolite.maxmind.com/download/geoip/database/GeoLite2-Country-CSV.zip",
