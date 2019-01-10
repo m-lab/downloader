@@ -11,6 +11,15 @@ import (
 	"github.com/m-lab/downloader/file"
 )
 
+func TestAllMaxmindURLs(t *testing.T) {
+	for _, url := range d.MaxmindURLs {
+		resp, err := http.Head(url)
+		if err != nil || resp.StatusCode != http.StatusOK {
+			t.Errorf("Bad URL (%q), err: %v (%v)", url, err, resp.StatusCode)
+		}
+	}
+}
+
 func TestDownloadMaxmindFiles(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, r.URL.String())
