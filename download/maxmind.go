@@ -16,7 +16,7 @@ var maxmindFilenameToDedupeRegexp = regexp.MustCompile(`(.*/).*/.*`)
 var MaxmindURLs []string = []string{
 	"http://geolite.maxmind.com/download/geoip/database/GeoLiteCityv6-beta/GeoLiteCityv6.dat.gz",
 	"http://geolite.maxmind.com/download/geoip/database/GeoLiteCityv6-beta/GeoLiteCityv6.csv.gz",
-	"http://geolite.maxmind.com/download/geoip/database/GeoIPv6.csv.gz",
+	// "http://geolite.maxmind.com/download/geoip/database/GeoIPv6.csv.gz",   // Obsolete?
 	"http://geolite.maxmind.com/download/geoip/database/GeoLite2-City-CSV.zip",
 	"http://geolite.maxmind.com/download/geoip/database/GeoLite2-Country-CSV.zip",
 	"http://geolite.maxmind.com/download/geoip/database/GeoLite2-ASN-CSV.zip",
