@@ -46,4 +46,5 @@ deploy:
   skip_cleanup: true
   on:
     repo: m-lab/downloader
-    branch: master
+    all_branches: true
+    condition: "$TRAVIS_TAG == prod-*"
