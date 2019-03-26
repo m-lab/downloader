@@ -4,8 +4,9 @@ import (
 	"flag"
 	"log"
 	"math/rand"
-	"net/http"
 	"time"
+
+	"github.com/m-lab/go/prometheusx"
 
 	"golang.org/x/net/context"
 
@@ -43,10 +44,7 @@ func main() {
 		log.Fatal("NO PROJECT SPECIFIED!!!")
 	}
 	rand.Seed(time.Now().UTC().UnixNano())
-	metrics.SetupPrometheus()
-	go func() {
-		log.Fatal(http.ListenAndServe(":9090", nil))
-	}()
+	prometheusx.MustStartPrometheus(":9090")
 	t := getPubSubTopicOrDie(NewFilesTopic, *projectName)
 	loopOverURLsForever(*bucketName, t)
 }
@@ -76,6 +74,7 @@ func getPubSubTopicOrDie(topicName string, projectName string) *pubsub.Topic {
 // and then tries to download the files over and over again until the
 // end of time (waiting an average of 8 hours in between attempts)
 func loopOverURLsForever(bucketName string, t *pubsub.Topic) {
+	// TODO: consider migrating to github.com/m-lab/go/memoryless
 	lastDownloadedV4 := 0
 	lastDownloadedV6 := 0
 	for {
