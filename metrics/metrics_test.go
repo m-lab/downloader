@@ -3,9 +3,8 @@ package metrics_test
 import (
 	"testing"
 
-	"github.com/m-lab/go/prometheusx"
-
 	"github.com/m-lab/downloader/metrics"
+	"github.com/m-lab/go/prometheusx/promtest"
 )
 
 func TestMetrics(t *testing.T) {
@@ -13,5 +12,5 @@ func TestMetrics(t *testing.T) {
 	metrics.FailedDownloadCount.WithLabelValues("x")
 	metrics.DownloaderErrorCount.WithLabelValues("x")
 	metrics.RouteviewsURLErrorCount.WithLabelValues("x")
-	prometheusx.LintMetrics(t)
+	promtest.LintMetrics(t)
 }
