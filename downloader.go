@@ -44,7 +44,7 @@ func main() {
 		log.Fatal("NO PROJECT SPECIFIED!!!")
 	}
 	rand.Seed(time.Now().UTC().UnixNano())
-	prometheusx.MustStartPrometheus(":9090")
+	prometheusx.MustServeMetrics()
 	t := getPubSubTopicOrDie(NewFilesTopic, *projectName)
 	loopOverURLsForever(*bucketName, t)
 }
