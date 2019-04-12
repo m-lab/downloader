@@ -1,6 +1,6 @@
 FROM golang:1.12 as builder
 # Set up the build environment
-ENV CGO 0
+ENV CGO_ENABLED 0
 # Copy files to correct gopath
 ADD . /go/src/github.com/m-lab/downloader
 WORKDIR /go/src/github.com/m-lab/downloader
