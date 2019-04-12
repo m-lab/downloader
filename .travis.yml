@@ -1,22 +1,22 @@
 language: go
 
 go:
-  - 1.11
+- 1.11
 
 go_import_path: github.com/m-lab/downloader
 
-  
+
 # Cache Gcloud SDK between commands
 cache:
   directories:
-    - "$HOME/google-cloud-sdk/"
+  - "$HOME/google-cloud-sdk/"
 
 # Install services
 services:
-  - docker
+- docker
 
 before_deploy:
-  - $TRAVIS_BUILD_DIR/travis/install_gcloud.sh kubectl
+- $TRAVIS_BUILD_DIR/travis/install_gcloud.sh kubectl
 
 deploy:
 #########################################
@@ -37,7 +37,7 @@ deploy:
   skip_cleanup: true
   on:
     repo: m-lab/downloader
-    branch: integration
+    branch: master
 
 #########################################
 ## Production
@@ -47,4 +47,4 @@ deploy:
   on:
     repo: m-lab/downloader
     all_branches: true
-    condition: "$TRAVIS_TAG == prod-*"
+    condition: $TRAVIS_TAG =~ ^v[0-9]+\.[0-9]+\.[0-9]+
