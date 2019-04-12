@@ -5,10 +5,8 @@
 package metrics
 
 import (
-	"net/http"
-
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
 //These vars are the prometheus metrics
@@ -18,47 +16,38 @@ var (
 	//    downloader_last_success_time_seconds
 	// Example usage:
 	//    LastSuccessTime.Inc()
-	LastSuccessTime = prometheus.NewGauge(prometheus.GaugeOpts{
+	LastSuccessTime = promauto.NewGauge(prometheus.GaugeOpts{
 		Name: "downloader_last_success_time_seconds",
 		Help: "The time that ALL the downloads last completed successfully.",
 	})
 
 	// Measures the number of downloads that have failed completely
 	// Provides metrics:
-	//    downloader_download_failed_count
+	//    downloader_download_failed_total
 	// Example usage:
 	//    FailedDownloadCount.Inc()
-	FailedDownloadCount = prometheus.NewCounterVec(prometheus.CounterOpts{
-		Name: "downloader_download_failed_count",
+	FailedDownloadCount = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "downloader_download_failed_total",
 		Help: "Increments every time a download maxes out our number of retries.",
 	}, []string{"download_type"})
 
 	// Measures the number of downloader errors
 	// Provides metrics:
-	//    downloader_error_count
+	//    downloader_error_total
 	// Example usage:
 	//    DownloaderErrorCount.Inc()
-	DownloaderErrorCount = prometheus.NewCounterVec(prometheus.CounterOpts{
-		Name: "downloader_error_count",
+	DownloaderErrorCount = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "downloader_error_total",
 		Help: "The current number of unresolved errors encountered while attemting to download the latest maxmind and routeviews data.",
 	}, []string{"source"})
 
 	// Measures the number of errors involved with getting the list of routeview files
 	// Provides metrics:
-	//    downloader_downloader_routeviews_url_error_count
+	//    downloader_downloader_routeviews_url_error_total
 	// Example usage:
 	//    RouteviewsURLErrorCount.Inc()
-	RouteviewsURLErrorCount = prometheus.NewCounterVec(prometheus.CounterOpts{
-		Name: "downloader_downloader_routeviews_url_error_count",
-		Help: "The number of erros that occured with retrieving the Routeviews URL list.",
+	RouteviewsURLErrorCount = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "downloader_downloader_routeviews_url_error_total",
+		Help: "The number of errors that occured with retrieving the Routeviews URL list.",
 	}, []string{"source"})
 )
-
-// setupPrometheus takes no arguments and sets up prometheus metrics for the package
-func SetupPrometheus() {
-	http.Handle("/metrics", promhttp.Handler())
-	prometheus.MustRegister(LastSuccessTime)
-	prometheus.MustRegister(FailedDownloadCount)
-	prometheus.MustRegister(DownloaderErrorCount)
-	prometheus.MustRegister(RouteviewsURLErrorCount)
-}
