@@ -3,17 +3,20 @@ package download_test
 import (
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 
 	d "github.com/m-lab/downloader/download"
 	"github.com/m-lab/downloader/file"
 )
 
-func XTestAllMaxmindURLs(t *testing.T) {
+func TestAllMaxmindURLs(t *testing.T) {
+	log.Println(os.Getenv("MAXMIND_LICENSE_KEY"))
 	for _, url := range d.MaxmindURLs {
-		resp, err := http.Head(url)
+		resp, err := http.Head(url + os.Getenv("MAXMIND_LICENSE_KEY"))
 		if err != nil || resp.StatusCode != http.StatusOK {
 			t.Errorf("Bad URL (%q), err: %v (%v)", url, err, resp.StatusCode)
 		}
