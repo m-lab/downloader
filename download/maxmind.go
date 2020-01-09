@@ -1,7 +1,6 @@
 package download
 
 import (
-	"os"
 	"regexp"
 	"time"
 
@@ -30,10 +29,10 @@ var MaxmindURLs []string = []string{
 // files stored. It then downloads the files, stores them, and returns
 // and error on failure or nil on success. Gaurenteed to not introduce
 // duplicates.
-func DownloadMaxmindFiles(urls []string, timestamp string, store file.FileStore) error {
+func DownloadMaxmindFiles(urls []string, timestamp string, store file.FileStore, maxmindLicenseKey string) error {
 	var lastErr error = nil
 	for _, url := range urls {
-		dc := DownloadConfig{URL: url + os.Getenv("MAXMIND_LICENSE_KEY"), Store: store, PathPrefix: "Maxmind/" + timestamp,
+		dc := DownloadConfig{URL: url + maxmindLicenseKey, Store: store, PathPrefix: "Maxmind/" + timestamp,
 			FilePrefix: time.Now().UTC().Format("20060102T150405Z-"), URLRegexp: maxmindURLToFilenameRegexp,
 			DedupeRegexp: maxmindFilenameToDedupeRegexp}
 		if err := RunFunctionWithRetry(Download, dc, WaitAfterFirstDownloadFailure,
