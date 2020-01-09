@@ -43,12 +43,12 @@ func DownloadMaxmindFiles(timestamp string, store file.FileStore, maxmindLicense
 	var lastErr error = nil
 	for index, _ := range MaxmindDownloadInfo {
 		dc := DownloadConfig{
-			URL:          MaxmindDownloadInfo[index].url + maxmindLicenseKey,
-			Store:        store,
-			PathPrefix:   "Maxmind/" + timestamp,
-			FilePrefix:   time.Now().UTC().Format("20060102T150405Z-"),
-			URLRegexp:    regexp.MustCompile(MaxmindDownloadInfo[index].filename),
-			DedupeRegexp: maxmindFilenameToDedupeRegexp}
+			URL:           MaxmindDownloadInfo[index].url + maxmindLicenseKey,
+			Store:         store,
+			PathPrefix:    "Maxmind/" + timestamp,
+			FilePrefix:    time.Now().UTC().Format("20060102T150405Z-"),
+			FixedFilename: MaxmindDownloadInfo[index].filename,
+			DedupeRegexp:  maxmindFilenameToDedupeRegexp}
 		if err := RunFunctionWithRetry(Download, dc, WaitAfterFirstDownloadFailure,
 			MaximumWaitBetweenDownloadAttempts); err != nil {
 			lastErr = err
