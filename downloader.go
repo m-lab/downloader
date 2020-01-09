@@ -90,7 +90,7 @@ func loopOverURLsForever(bucketName string, t *pubsub.Topic, maxmindLicenseKey s
 		}
 		fileStore := &file.StoreGCS{Bkt: bkt}
 
-		maxmindErr := download.DownloadMaxmindFiles(download.MaxmindURLs, timestamp, fileStore, maxmindLicenseKey)
+		maxmindErr := download.DownloadMaxmindFiles(timestamp, fileStore, maxmindLicenseKey)
 		if maxmindErr != nil {
 			log.Println(maxmindErr)
 		}
