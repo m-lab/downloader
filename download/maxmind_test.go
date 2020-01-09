@@ -11,7 +11,7 @@ import (
 	"github.com/m-lab/downloader/file"
 )
 
-func TestAllMaxmindURLs(t *testing.T) {
+func XTestAllMaxmindURLs(t *testing.T) {
 	for _, url := range d.MaxmindURLs {
 		resp, err := http.Head(url)
 		if err != nil || resp.StatusCode != http.StatusOK {
