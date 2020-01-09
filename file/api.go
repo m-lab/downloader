@@ -40,7 +40,7 @@ func (store *StoreGCS) GetFile(name string) FileObject {
 
 func (store *StoreGCS) NamesToMD5(prefix string) map[string][]byte {
 	ctx, _ := context.WithTimeout(context.Background(), contextTimeout)
-	objects := store.Bkt.Objects(ctx, &storage.Query{Prefix: "", false})
+	objects := store.Bkt.Objects(ctx, &storage.Query{Prefix: ""})
 	var namesAndMD5s map[string][]byte = make(map[string][]byte)
 	for object, err := objects.Next(); err != iterator.Done; object, err = objects.Next() {
 		if err != nil {
