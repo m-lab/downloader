@@ -11,6 +11,11 @@ GCLOUD_SERVICE_KEY=${4:?Please enter the base64 encoded json keyfile: $USAGE}
 echo $GCLOUD_SERVICE_KEY | base64 --decode -i > /tmp/${PROJECT_NAME}.json
 gcloud auth activate-service-account --key-file /tmp/${PROJECT_NAME}.json
 
+./travis/kudo.sh $PROJECT_NAME $CLUSTER_NAME kubectl create \
+  secret generic downloader-secret --from-literal=license_key=$MAXMIND_LICENSE_KEY \
+  --from-file=key.json=/tmp/${PROJECT_NAME}.json \
+  --dry-run -o json | ./travis/kudo.sh $PROJECT_NAME $CLUSTER_NAME kubectl apply -f -
+
 ./travis/build_and_push_container.sh \
     gcr.io/${PROJECT_NAME}/downloader:$TRAVIS_COMMIT $PROJECT_NAME
 

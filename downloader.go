@@ -6,6 +6,7 @@ import (
 	"math/rand"
 	"time"
 
+	"github.com/m-lab/go/flagx"
 	"github.com/m-lab/go/prometheusx"
 
 	"golang.org/x/net/context"
@@ -36,7 +37,11 @@ const NewFilesTopic = "downloader-new-files"
 func main() {
 	bucketName := flag.String("bucket", "", "Specify the bucket name to store the results in.")
 	projectName := flag.String("project", "", "Specify the project name to send the pub/sub in.")
+	maxmindLicenseKey := flag.String("maxmind_license_key", "", "the license key for maxmind downloading.")
+
 	flag.Parse()
+	flagx.ArgsFromEnv(flag.CommandLine)
+
 	if *bucketName == "" {
 		log.Fatal("NO BUCKET SPECIFIED!!!")
 	}
@@ -46,7 +51,7 @@ func main() {
 	rand.Seed(time.Now().UTC().UnixNano())
 	prometheusx.MustServeMetrics()
 	t := getPubSubTopicOrDie(NewFilesTopic, *projectName)
-	loopOverURLsForever(*bucketName, t)
+	loopOverURLsForever(*bucketName, t, *maxmindLicenseKey)
 }
 
 // getPubSubTopic takes a topic name and a project name and uses it to
@@ -73,7 +78,7 @@ func getPubSubTopicOrDie(topicName string, projectName string) *pubsub.Topic {
 // loopOverURLsForever takes a bucketName, pointing to a GCS bucket,
 // and then tries to download the files over and over again until the
 // end of time (waiting an average of 8 hours in between attempts)
-func loopOverURLsForever(bucketName string, t *pubsub.Topic) {
+func loopOverURLsForever(bucketName string, t *pubsub.Topic, maxmindLicenseKey string) {
 	// TODO: consider migrating to github.com/m-lab/go/memoryless
 	lastDownloadedV4 := 0
 	lastDownloadedV6 := 0
@@ -85,7 +90,7 @@ func loopOverURLsForever(bucketName string, t *pubsub.Topic) {
 		}
 		fileStore := &file.StoreGCS{Bkt: bkt}
 
-		maxmindErr := download.DownloadMaxmindFiles(download.MaxmindURLs, timestamp, fileStore)
+		maxmindErr := download.DownloadMaxmindFiles(timestamp, fileStore, maxmindLicenseKey)
 		if maxmindErr != nil {
 			log.Println(maxmindErr)
 		}

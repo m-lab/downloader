@@ -41,7 +41,7 @@ func DownloadCaidaRouteviewsFiles(logFileURL string, directory string, lastDownl
 	}
 	for _, urlAndID := range routeViewsURLsAndIDs {
 		dc := DownloadConfig{URL: urlAndID.URL, Store: store, PathPrefix: directory, FilePrefix: "",
-			URLRegexp: routeviewsURLToFilenameRegexp, DedupeRegexp: routeviewsFilenameToDedupeRegexp}
+			URLRegexp: routeviewsURLToFilenameRegexp, DedupRegexp: routeviewsFilenameToDedupeRegexp}
 		if err := RunFunctionWithRetry(Download, dc, WaitAfterFirstDownloadFailure,
 			MaximumWaitBetweenDownloadAttempts); err != nil {
 			lastErr = err

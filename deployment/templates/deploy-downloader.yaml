@@ -37,6 +37,11 @@ spec:
           value: {{PROJECT_NAME}}
         - name: GOOGLE_APPLICATION_CREDENTIALS
           value: /var/secrets/google/key.json
+        - name: MAXMIND_LICENSE_KEY
+          valueFrom:
+            secretKeyRef:
+              name: downloader-secret
+              key: license_key
         image: gcr.io/{{PROJECT_NAME}}/downloader:{{GITHUB_COMMIT}}
         volumeMounts:
           - name: google-cloud-key
