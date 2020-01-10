@@ -9,8 +9,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
-var maxmindURLToFilenameRegexp = regexp.MustCompile(`.*/()(.*)`)
-var maxmindFilenameToDedupeRegexp = regexp.MustCompile(`(.*/).*/.*`)
+var maxmindFilenameToDedupRegexp = regexp.MustCompile(`(.*/).*/.*`)
 
 var MaxmindDownloadInfo = []struct {
 	url      string
@@ -58,7 +57,7 @@ func DownloadMaxmindFiles(timestamp string, store file.FileStore, maxmindLicense
 			PathPrefix:    "Maxmind/" + timestamp,
 			FilePrefix:    time.Now().UTC().Format("20060102T150405Z-"),
 			FixedFilename: MaxmindDownloadInfo[index].filename,
-			DedupeRegexp:  maxmindFilenameToDedupeRegexp}
+			DedupRegexp:  maxmindFilenameToDedupRegexp}
 		if err := RunFunctionWithRetry(Download, dc, WaitAfterFirstDownloadFailure,
 			MaximumWaitBetweenDownloadAttempts); err != nil {
 			lastErr = err
