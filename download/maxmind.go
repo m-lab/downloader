@@ -51,7 +51,7 @@ var MaxmindDownloadInfo = []struct {
 // duplicates.
 func DownloadMaxmindFiles(timestamp string, store file.FileStore, maxmindLicenseKey string) error {
 	var lastErr error = nil
-	for index, _ := range MaxmindDownloadInfo {
+	for index := range MaxmindDownloadInfo {
 		dc := DownloadConfig{
 			URL:           MaxmindDownloadInfo[index].url + maxmindLicenseKey,
 			Store:         store,
