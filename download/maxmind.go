@@ -18,19 +18,29 @@ var MaxmindDownloadInfo = []struct {
 }{
 	{
 		url:      "https://download.maxmind.com/app/geoip_download?edition_id=GeoLite2-ASN&suffix=tar.gz&license_key=",
-		filename: "GeoLite2-ASN_20200107.tar.gz",
+		filename: "GeoLite2-ASN.tar.gz",
 	},
-}
-
-// The list of URLs to download from Maxmind
-var MaxmindURLs []string = []string{
-	"https://download.maxmind.com/app/geoip_download?edition_id=GeoLite2-ASN&suffix=tar.gz&license_key=",
-	//"http://geolite.maxmind.com/download/geoip/database/GeoLite2-City-CSV.zip",
-	//"http://geolite.maxmind.com/download/geoip/database/GeoLite2-Country-CSV.zip",
-	//"http://geolite.maxmind.com/download/geoip/database/GeoLite2-ASN-CSV.zip",
-	//"http://geolite.maxmind.com/download/geoip/database/GeoLite2-City.tar.gz",
-	//"http://geolite.maxmind.com/download/geoip/database/GeoLite2-Country.tar.gz",
-	//"http://geolite.maxmind.com/download/geoip/database/GeoLite2-ASN.tar.gz",
+	{
+		url:      "https://download.maxmind.com/app/geoip_download?edition_id=GeoLite2-ASN-CSV&suffix=zip&license_key=",
+		filename: "GeoLite2-ASN-CSV.zip",
+	},
+	{
+		url:      "https://download.maxmind.com/app/geoip_download?edition_id=GeoLite2-City&suffix=tar.gz&license_key=",
+		filename: "GeoLite2-City.tar.gz",
+	},
+	{
+		url:      "https://download.maxmind.com/app/geoip_download?edition_id=GeoLite2-City-CSV&suffix=zip&license_key=",
+		filename: "GeoLite2-City-CSV.zip",
+	},
+	{
+		url:      "https://download.maxmind.com/app/geoip_download?edition_id=GeoLite2-Country&suffix=tar.gz&license_key=",
+		filename: "GeoLite2-Country.tar.gz",
+	},
+	{
+		url:      "https://download.maxmind.com/app/geoip_download?edition_id=GeoLite2-Country-CSV&suffix=zip&license_key=",
+		filename: "GeoLite2-Country-CSV.zip",
+	},
+	
 }
 
 // DownloadMaxmindFiles takes a slice of urls pointing to maxmind
