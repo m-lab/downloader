@@ -105,7 +105,7 @@ func TestDownload(t *testing.T) {
 				Store:        &testStore{map[string]testFileObject{}},
 				PathPrefix:   "pre/",
 				URLRegexp:    regexp.MustCompile(`.*()(/.*)`),
-				DedupeRegexp: regexp.MustCompile(`(.*)`),
+				DedupRegexp: regexp.MustCompile(`(.*)`),
 			},
 			postfix: "portGarbage",
 			resBool: false,
