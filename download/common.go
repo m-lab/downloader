@@ -33,7 +33,7 @@ type DownloadConfig struct {
 	FilePrefix string         // The prefix to attach to the filename after it's downloaded
 	URLRegexp  *regexp.Regexp // The regular expression to apply to the URL to create the filename.
 	// The first matching group will go before the timestamp, the second after.
-	DedupeRegexp  *regexp.Regexp // The regexp to apply to the filename to determine the directory to dedupe in.
+	DedupRegexp  *regexp.Regexp // The regexp to apply to the filename to determine the directory to dedupe in.
 	FixedFilename string         // The saved file could have fixed filename.
 }
 
@@ -95,7 +95,7 @@ func Download(config interface{}) (error, bool) {
 	resp.Body.Close()
 
 	// Check to make sure we didn't just download a duplicate, and delete it if we did.
-	if !IsFileNew(dc.Store, filename, dc.DedupeRegexp.FindAllStringSubmatch(filename, -1)[0][1]) {
+	if !IsFileNew(dc.Store, filename, dc.DedupRegexp.FindAllStringSubmatch(filename, -1)[0][1]) {
 		err = obj.DeleteFile()
 		if err != nil {
 			metrics.DownloaderErrorCount.
