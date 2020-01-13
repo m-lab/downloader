@@ -9,5 +9,5 @@ require (
 	github.com/m-lab/go v1.2.1
 	github.com/prometheus/client_golang v1.3.0
 	golang.org/x/net v0.0.0-20191209160850-c0dbc17a3553
-	google.golang.org/api v0.14.0
+	google.golang.org/api v0.15.0
 )
