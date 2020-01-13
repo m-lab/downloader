@@ -1,4 +1,4 @@
-FROM golang:1.12 as builder
+FROM golang:1.13 as builder
 # Set up the build environment
 ENV CGO_ENABLED 0
 # Copy files to correct gopath
