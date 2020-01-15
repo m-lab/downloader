@@ -28,7 +28,7 @@ spec:
       volumes:
         - name: google-cloud-key
           secret:
-            secretName: downloader-app-key
+            secretName: downloader-secret
       containers:
       - env:
         - name: DOWNLOADER_BUCKET
