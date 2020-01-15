@@ -22,7 +22,7 @@ deploy:
 #########################################
 ## Sandbox
 - provider: script
-  script: $TRAVIS_BUILD_DIR/deployment/deploy.sh mlab-sandbox downloader downloader-mlab-sandbox $GCLOUD_SERVICE_KEY_BOX
+  script: $TRAVIS_BUILD_DIR/deployment/deploy.sh mlab-sandbox data-processing-cluster downloader-mlab-sandbox $GCLOUD_SERVICE_KEY_BOX
   skip_cleanup: true
   on:
     repo: m-lab/downloader
@@ -33,7 +33,7 @@ deploy:
 #########################################
 ## Staging
 - provider: script
-  script: $TRAVIS_BUILD_DIR/deployment/deploy.sh mlab-staging downloader downloader-mlab-staging $GCLOUD_SERVICE_KEY_STG
+  script: $TRAVIS_BUILD_DIR/deployment/deploy.sh mlab-staging data-processing-cluster downloader-mlab-staging $GCLOUD_SERVICE_KEY_STG
   skip_cleanup: true
   on:
     repo: m-lab/downloader
@@ -42,7 +42,7 @@ deploy:
 #########################################
 ## Production
 - provider: script
-  script: $TRAVIS_BUILD_DIR/deployment/deploy.sh mlab-oti downloader downloader-mlab-oti $GCLOUD_SERVICE_KEY_PRD
+  script: $TRAVIS_BUILD_DIR/deployment/deploy.sh mlab-oti data-processing-cluster downloader-mlab-oti $GCLOUD_SERVICE_KEY_PRD
   skip_cleanup: true
   on:
     repo: m-lab/downloader
