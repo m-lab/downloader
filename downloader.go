@@ -26,10 +26,6 @@ const averageHoursBetweenUpdateChecks = 8 * time.Hour
 // from.
 const windowForRandomTimeBetweenUpdateChecks = 4 * time.Hour
 
-// The pubsub topic to broadcast messages on when we get a fresh batch
-// of files
-const NewFilesTopic = "downloader-new-files"
-
 // The main function seeds the random number generator, starts
 // prometheus in the background, takes the bucket flag from the
 // command line, and kicks off the actual downloader loop
