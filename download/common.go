@@ -15,19 +15,19 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
-// WaitAfterFirstDownloadFailure is the time (in minutes) to wait before the
+// waitAfterFirstDownloadFailure is the time (in minutes) to wait before the
 // first retry of a failed download
-var WaitAfterFirstDownloadFailure = time.Minute * time.Duration(1)
+var waitAfterFirstDownloadFailure = time.Minute * time.Duration(1)
 
-// MaximumWaitBetweenDownloadAttempts is the maximum time (in minutes) to wait
+// maximumWaitBetweenDownloadAttempts is the maximum time (in minutes) to wait
 // in between download attempts
-var MaximumWaitBetweenDownloadAttempts = time.Minute * time.Duration(8)
+var maximumWaitBetweenDownloadAttempts = time.Minute * time.Duration(8)
 
-// Config is a struct for bundling parameters to be passed through
+// config is a struct for bundling parameters to be passed through
 // runFunctionWithRetry to the download function.
 //
 // TODO: Find a better method than using backChars. Possibly regex?
-type Config struct {
+type config struct {
 	URL         string         // The URL of the file to download
 	Store       file.FileStore // The FileStore in which to place the file
 	PathPrefix  string         // The prefix to attach to the file's path after it's downloaded
@@ -47,8 +47,8 @@ func GenUniformSleepTime(sleepInterval time.Duration, sleepDeviation time.Durati
 	return time.Duration((rand.Float64()-0.5)*float64(sleepDeviation)) + sleepInterval
 }
 
-// Download takes a fully populated downloadConfig and downloads the
-// file specefied by the URL, storing it in the store implementation
+// download takes a fully populated download.config and downloads the
+// file specified by the URL, storing it in the store implementation
 // that is passed in, in the directory specefied by the prefix, given
 // the number of extra characters from the URL specified by
 // backChars. The error value indicates the error, if any occurred. If
@@ -57,8 +57,8 @@ func GenUniformSleepTime(sleepInterval time.Duration, sleepDeviation time.Durati
 // retrying the download. If the boolean is false, that means that the
 // download might work if you attempt it again. If the error value is
 // nil, then the value of the boolean is meaningless.
-func Download(config interface{}) (error, bool) {
-	dc, ok := config.(Config)
+func download(downloadconfig interface{}) (error, bool) {
+	dc, ok := downloadconfig.(config)
 	if !ok {
 		return errors.New("wrong configuration type passed to Download()"), true
 	}

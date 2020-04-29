@@ -11,7 +11,6 @@ import (
 
 	"golang.org/x/net/context"
 
-	"cloud.google.com/go/pubsub"
 	"cloud.google.com/go/storage"
 	"github.com/m-lab/downloader/download"
 	"github.com/m-lab/downloader/file"
@@ -50,35 +49,13 @@ func main() {
 	}
 	rand.Seed(time.Now().UTC().UnixNano())
 	prometheusx.MustServeMetrics()
-	t := getPubSubTopicOrDie(NewFilesTopic, *projectName)
-	loopOverURLsForever(*bucketName, t, *maxmindLicenseKey)
-}
-
-// getPubSubTopic takes a topic name and a project name and uses it to
-// get a pub/sub topic. It will also check to make sure that the topic
-// exists, delibrately fatally logging if it does not.
-func getPubSubTopicOrDie(topicName string, projectName string) *pubsub.Topic {
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
-	defer cancel()
-	client, err := pubsub.NewClient(ctx, projectName)
-	if err != nil {
-		log.Fatal(err)
-	}
-	topic := client.Topic(topicName)
-	ok, err := topic.Exists(ctx)
-	if err != nil {
-		log.Fatal(err)
-	}
-	if !ok {
-		log.Fatal("Topic: " + topicName + " does not exist!")
-	}
-	return topic
+	loopOverURLsForever(*bucketName, *maxmindLicenseKey)
 }
 
 // loopOverURLsForever takes a bucketName, pointing to a GCS bucket,
 // and then tries to download the files over and over again until the
 // end of time (waiting an average of 8 hours in between attempts)
-func loopOverURLsForever(bucketName string, t *pubsub.Topic, maxmindLicenseKey string) {
+func loopOverURLsForever(bucketName string, maxmindLicenseKey string) {
 	// TODO: consider migrating to github.com/m-lab/go/memoryless
 	lastDownloadedV4 := 0
 	lastDownloadedV6 := 0
@@ -90,12 +67,12 @@ func loopOverURLsForever(bucketName string, t *pubsub.Topic, maxmindLicenseKey s
 		}
 		fileStore := &file.StoreGCS{Bkt: bkt}
 
-		maxmindErr := download.DownloadMaxmindFiles(timestamp, fileStore, maxmindLicenseKey)
+		maxmindErr := download.MaxmindFiles(timestamp, fileStore, maxmindLicenseKey)
 		if maxmindErr != nil {
 			log.Println(maxmindErr)
 		}
 
-		routeviewIPv4Err := download.DownloadCaidaRouteviewsFiles(
+		routeviewIPv4Err := download.CaidaRouteviewsFiles(
 			"http://data.caida.org/datasets/routing/routeviews-prefix2as/pfx2as-creation.log",
 			"RouteViewIPv4/",
 			&lastDownloadedV4,
@@ -105,7 +82,7 @@ func loopOverURLsForever(bucketName string, t *pubsub.Topic, maxmindLicenseKey s
 			log.Println(routeviewIPv4Err)
 		}
 
-		routeviewIPv6Err := download.DownloadCaidaRouteviewsFiles(
+		routeviewIPv6Err := download.CaidaRouteviewsFiles(
 			"http://data.caida.org/datasets/routing/routeviews6-prefix2as/pfx2as-creation.log",
 			"RouteViewIPv6/",
 			&lastDownloadedV6,
@@ -116,14 +93,6 @@ func loopOverURLsForever(bucketName string, t *pubsub.Topic, maxmindLicenseKey s
 		}
 
 		if maxmindErr == nil && routeviewIPv4Err == nil && routeviewIPv6Err == nil {
-			ctx := context.Background()
-			message := t.Publish(ctx, &pubsub.Message{Data: []byte("reload")})
-			_, sendErr := message.Get(ctx)
-			if sendErr != nil {
-				log.Println(sendErr)
-				metrics.DownloaderErrorCount.With(
-					prometheus.Labels{"source": "Couldn't send Pub/Sub message!"}).Inc()
-			}
 			metrics.LastSuccessTime.SetToCurrentTime()
 		}
 		time.Sleep(download.GenUniformSleepTime(averageHoursBetweenUpdateChecks, windowForRandomTimeBetweenUpdateChecks))

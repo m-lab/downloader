@@ -1,4 +1,4 @@
-package download_test
+package download
 
 import (
 	"bytes"
@@ -13,7 +13,6 @@ import (
 	"testing"
 	"time"
 
-	d "github.com/m-lab/downloader/download"
 	"github.com/m-lab/downloader/file"
 )
 
@@ -32,7 +31,7 @@ func (fsto *testStore) GetFile(name string) file.FileObject {
 }
 
 func (fsto *testStore) NamesToMD5(prefix string) map[string][]byte {
-	var attrMap map[string][]byte = make(map[string][]byte)
+	attrMap := make(map[string][]byte)
 	for key, object := range fsto.files {
 		if strings.HasPrefix(key, prefix) {
 			attrMap[key] = object.md5
@@ -70,7 +69,7 @@ func (file *testFileObject) Close() error {
 
 func (file *testFileObject) DeleteFile() error {
 	if strings.HasSuffix(file.name, "deleteFail") {
-		return errors.New("Couldn't delete file!")
+		return errors.New("couldn't delete file")
 	}
 	return nil
 }
@@ -91,7 +90,7 @@ func TestGenUniformSleepTime(t *testing.T) {
 	testVals[3] = time.Duration(22382551290235)
 	testVals[4] = time.Duration(26893255775507)
 	for i := 0; i < 5; i++ {
-		testRes := d.GenUniformSleepTime(8*time.Hour, 4*time.Hour)
+		testRes := GenUniformSleepTime(8*time.Hour, 4*time.Hour)
 		if int64(testVals[i].Seconds()) != int64(testRes.Seconds()) {
 			t.Errorf("Expected %s, got %s.", testVals[i], testRes)
 		}
@@ -100,13 +99,13 @@ func TestGenUniformSleepTime(t *testing.T) {
 
 func TestDownload(t *testing.T) {
 	tests := []struct {
-		dc      d.Config
+		dc      config
 		postfix string
 		resBool bool
 		resErr  error
 	}{
 		{
-			dc: d.Config{
+			dc: config{
 				URL:         "Fill me",
 				Store:       &testStore{map[string]*testFileObject{}},
 				PathPrefix:  "pre/",
@@ -118,7 +117,7 @@ func TestDownload(t *testing.T) {
 			resErr:  errors.New("invalid URL port"),
 		},
 		{
-			dc: d.Config{
+			dc: config{
 				URL:         "Fill me",
 				Store:       &testStore{map[string]*testFileObject{}},
 				PathPrefix:  "pre/",
@@ -130,7 +129,7 @@ func TestDownload(t *testing.T) {
 			resErr:  errors.New("non-200 error"),
 		},
 		{
-			dc: d.Config{
+			dc: config{
 				URL:         "Fill me",
 				Store:       &testStore{map[string]*testFileObject{}},
 				PathPrefix:  "pre/",
@@ -142,7 +141,7 @@ func TestDownload(t *testing.T) {
 			resErr:  errors.New("File copy error"),
 		},
 		{
-			dc: d.Config{
+			dc: config{
 				URL: "Fill me",
 				Store: &testStore{map[string]*testFileObject{
 					"pre/file.del/dup": {name: "pre/file.del/dup", data: bytes.NewBuffer(nil), md5: []byte("NEW FILE")},
@@ -156,7 +155,7 @@ func TestDownload(t *testing.T) {
 			resErr:  errors.New("Couldn't Delete File"),
 		},
 		{
-			dc: d.Config{
+			dc: config{
 				URL:         "Fill me",
 				Store:       &testStore{map[string]*testFileObject{}},
 				PathPrefix:  "pre/",
@@ -168,7 +167,7 @@ func TestDownload(t *testing.T) {
 			resErr:  nil,
 		},
 	}
-	if err, force := d.Download(nil); err == nil || force != true {
+	if err, force := download(nil); err == nil || force != true {
 		t.Errorf("Expected an improper Config error and unrecoverable, got nil or no recoverable.")
 	}
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -181,7 +180,7 @@ func TestDownload(t *testing.T) {
 	}))
 	for _, test := range tests {
 		test.dc.URL = ts.URL + test.postfix
-		err, resBool := d.Download(test.dc)
+		err, resBool := download(test.dc)
 		if test.resBool != resBool || (err != nil && test.resErr == nil) || (err == nil && test.resErr != nil) {
 			t.Errorf("Expected %s, %t got %s, %t", test.resErr, test.resBool, err, resBool)
 		}
@@ -249,7 +248,7 @@ func TestRunFunctionWithRetry(t *testing.T) {
 		return errors.New("runFunction Error"), rt.force
 	}
 	for _, test := range tests {
-		res := d.RunFunctionWithRetry(f, test.data, test.retryTimeMin, test.retryTimeMax)
+		res := RunFunctionWithRetry(f, test.data, test.retryTimeMin, test.retryTimeMax)
 		if (res != nil && test.res == nil) || (res == nil && test.res != nil) {
 			t.Errorf("Expected %s, got %s", test.res, res)
 		}
@@ -318,7 +317,7 @@ func TestIsFileNew(t *testing.T) {
 		},
 	}
 	for _, test := range tests {
-		res := d.IsFileNew(test.fs, test.filename, test.directory)
+		res := IsFileNew(test.fs, test.filename, test.directory)
 		if res != test.res {
 			t.Errorf("Expected %t, got %t for %+v.", test.res, res, test)
 		}
@@ -400,7 +399,7 @@ func TestCheckIfHashIsUniqueInList(t *testing.T) {
 		},
 	}
 	for _, test := range tests {
-		testRes := d.CheckIfHashIsUniqueInList(test.md5, test.iter, test.filename)
+		testRes := CheckIfHashIsUniqueInList(test.md5, test.iter, test.filename)
 		if testRes != test.res {
 			t.Errorf("Expected %t got %t for %+v", test.res, testRes, test)
 		}

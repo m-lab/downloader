@@ -1,4 +1,4 @@
-package download_test
+package download
 
 import (
 	"errors"
@@ -9,7 +9,6 @@ import (
 	"strings"
 	"testing"
 
-	d "github.com/m-lab/downloader/download"
 	"github.com/m-lab/downloader/file"
 )
 
@@ -47,7 +46,7 @@ func TestDownloadCaidaRouteviewsFiles(t *testing.T) {
 			res:     errors.New("3"),
 		},
 	}
-	d.MaximumWaitBetweenDownloadAttempts = 0
+	maximumWaitBetweenDownloadAttempts = 0
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Path
 		if strings.HasSuffix(path, "logFile1") {
@@ -91,7 +90,7 @@ func TestDownloadCaidaRouteviewsFiles(t *testing.T) {
 		fmt.Fprint(w, r.URL.String())
 	}))
 	for _, test := range tests {
-		res := d.DownloadCaidaRouteviewsFiles(ts.URL+test.logFile, test.dir, &test.lastD, "", test.fsto)
+		res := CaidaRouteviewsFiles(ts.URL+test.logFile, test.dir, &test.lastD, "", test.fsto)
 		if (res == nil && test.res != nil) || (res != nil && test.res == nil) {
 			t.Errorf("Expected %t, got %t!!!", test.res, res)
 		}
@@ -157,9 +156,9 @@ func TestGenRouteViewURLs(t *testing.T) {
 		suffix         string
 		willErr        bool
 		lastDownloaded int
-		res            []d.URLAndSeqNum
+		res            []urlAndSeqNum
 	}{
-		{"", false, 0, []d.URLAndSeqNum{
+		{"", false, 0, []urlAndSeqNum{
 			{ts.URL[:strings.LastIndex(ts.URL, "/")+1] + "2017/06/routeviews-rv2-20170616-1200.pfx2as.gz", 3363},
 			{ts.URL[:strings.LastIndex(ts.URL, "/")+1] + "2017/06/routeviews-rv2-20170617-1200.pfx2as.gz", 3364},
 			{ts.URL[:strings.LastIndex(ts.URL, "/")+1] + "2017/06/routeviews-rv2-20170618-1000.pfx2as.gz", 3365},
@@ -191,7 +190,7 @@ func TestGenRouteViewURLs(t *testing.T) {
 			{ts.URL[:strings.LastIndex(ts.URL, "/")+1] + "2017/07/routeviews-rv2-20170714-1400.pfx2as.gz", 3391},
 			{ts.URL[:strings.LastIndex(ts.URL, "/")+1] + "2017/07/routeviews-rv2-20170715-1200.pfx2as.gz", 3392},
 		}},
-		{"", false, 3380, []d.URLAndSeqNum{
+		{"", false, 3380, []urlAndSeqNum{
 			{ts.URL[:strings.LastIndex(ts.URL, "/")+1] + "2017/07/routeviews-rv2-20170704-1200.pfx2as.gz", 3381},
 			{ts.URL[:strings.LastIndex(ts.URL, "/")+1] + "2017/07/routeviews-rv2-20170705-1200.pfx2as.gz", 3382},
 			{ts.URL[:strings.LastIndex(ts.URL, "/")+1] + "2017/07/routeviews-rv2-20170706-1200.pfx2as.gz", 3383},
@@ -211,7 +210,7 @@ func TestGenRouteViewURLs(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		res, err := d.GenRouteViewURLs(ts.URL+test.suffix, test.lastDownloaded)
+		res, err := genRouteViewURLs(ts.URL+test.suffix, test.lastDownloaded)
 		if !test.willErr {
 			if err != nil {
 				t.Errorf("genRouteViewURLs returned %s on %+v, %d.", err, res, test.lastDownloaded)

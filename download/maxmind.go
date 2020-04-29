@@ -11,7 +11,7 @@ import (
 
 var maxmindFilenameToDedupRegexp = regexp.MustCompile(`(.*/).*/.*`)
 
-var MaxmindDownloadInfo = []struct {
+var maxmindDownloadInfo = []struct {
 	url      string
 	filename string
 	current  string
@@ -43,16 +43,15 @@ var MaxmindDownloadInfo = []struct {
 	},
 }
 
-// DownloadMaxmindFiles takes a slice of urls pointing to maxmind
-// files, a timestamp that the user wants attached to the files, and
-// the instance of the FileStore interface where the user wants the
-// files stored. It then downloads the files, stores them, and returns
-// and error on failure or nil on success. Gaurenteed to not introduce
-// duplicates.
-func DownloadMaxmindFiles(timestamp string, store file.FileStore, maxmindLicenseKey string) error {
-	var lastErr error = nil
-	for _, info := range MaxmindDownloadInfo {
-		dc := Config{
+// MaxmindFiles takes a slice of urls pointing to maxmind files, a timestamp
+// that the user wants attached to the files, and the instance of the FileStore
+// interface where the user wants the files stored. It then downloads the files,
+// stores them, and returns and error on failure or nil on success. Gaurenteed
+// to not introduce duplicates.
+func MaxmindFiles(timestamp string, store file.FileStore, maxmindLicenseKey string) error {
+	var lastErr error
+	for _, info := range maxmindDownloadInfo {
+		dc := config{
 			URL:           info.url + maxmindLicenseKey,
 			Store:         store,
 			PathPrefix:    "Maxmind/" + timestamp,
@@ -60,8 +59,8 @@ func DownloadMaxmindFiles(timestamp string, store file.FileStore, maxmindLicense
 			FilePrefix:    time.Now().UTC().Format("20060102T150405Z-"),
 			FixedFilename: info.filename,
 			DedupRegexp:   maxmindFilenameToDedupRegexp}
-		if err := RunFunctionWithRetry(Download, dc, WaitAfterFirstDownloadFailure,
-			MaximumWaitBetweenDownloadAttempts); err != nil {
+		if err := RunFunctionWithRetry(download, dc, waitAfterFirstDownloadFailure,
+			maximumWaitBetweenDownloadAttempts); err != nil {
 			lastErr = err
 			metrics.FailedDownloadCount.With(prometheus.Labels{"download_type": "Maxmind"}).Inc()
 		}
