@@ -46,7 +46,7 @@ var maxmindDownloadInfo = []struct {
 // MaxmindFiles takes a slice of urls pointing to maxmind files, a timestamp
 // that the user wants attached to the files, and the instance of the FileStore
 // interface where the user wants the files stored. It then downloads the files,
-// stores them, and returns and error on failure or nil on success. Gaurenteed
+// stores them, and returns and error on failure or nil on success. Guaranteed
 // to not introduce duplicates.
 func MaxmindFiles(timestamp string, store file.FileStore, maxmindLicenseKey string) error {
 	var lastErr error

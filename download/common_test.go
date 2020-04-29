@@ -194,13 +194,14 @@ type retryTest struct {
 	numError int
 }
 
-// RunFunctionWithRetry takes an arbitrary function and an interface{} that will be passed to it.
-// So for this test, we create an anonymous function,
-// which will return a certain number of errors before the call succeedes.
-// The function will also return whether or not the error is unrecoverable,
-// based on what we pass into it. This allows us to test all three possible paths for
-// RunFunctionWithRetry: Run and succeed, run and fail until timeout,
-// run and fail a few times before suceeding, and run and fail with an error that forces an immediate exit
+// RunFunctionWithRetry takes an arbitrary function and an interface{} that will
+// be passed to it. So for this test, we create an anonymous function, which
+// will return a certain number of errors before the call succeeds. The function
+// will also return whether or not the error is unrecoverable, based on what we
+// pass into it. This allows us to test all three possible paths for
+// RunFunctionWithRetry: Run and succeed, run and fail until timeout, run and
+// fail a few times before succeeding, and run and fail with an error that
+// forces an immediate exit
 func TestRunFunctionWithRetry(t *testing.T) {
 	tests := []struct {
 		data         *retryTest

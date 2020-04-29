@@ -32,7 +32,7 @@ type urlAndSeqNum struct {
 // placed in, a pointer to the SeqNum of the last successful download,
 // and the instance of the store interface where the user wants the
 // files stored. It will download the files listed in the log file and
-// is gaurenteed not to introduce duplicates
+// is guaranteed not to introduce duplicates
 func CaidaRouteviewsFiles(logFileURL string, directory string, lastDownloaded *int, canonicalName string, store file.FileStore) error {
 	var lastErr error
 	routeViewsURLsAndIDs, err := genRouteViewURLs(logFileURL, *lastDownloaded)

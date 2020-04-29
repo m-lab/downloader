@@ -38,7 +38,7 @@ var (
 	//    DownloaderErrorCount.Inc()
 	DownloaderErrorCount = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "downloader_error_total",
-		Help: "The current number of unresolved errors encountered while attemting to download the latest maxmind and routeviews data.",
+		Help: "The current number of unresolved errors encountered while attempting to download the latest maxmind and routeviews data.",
 	}, []string{"source"})
 
 	// Measures the number of errors involved with getting the list of routeview files
