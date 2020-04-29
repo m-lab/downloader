@@ -8,6 +8,7 @@ require (
 	github.com/araddon/dateparse v0.0.0-20190622164848-0fb0a474d195 // indirect
 	github.com/m-lab/go v1.2.1
 	github.com/prometheus/client_golang v1.3.0
+	github.com/prometheus/prometheus v2.5.0+incompatible // indirect
 	golang.org/x/net v0.0.0-20191209160850-c0dbc17a3553
 	google.golang.org/api v0.15.0
 )

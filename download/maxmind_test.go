@@ -8,9 +8,15 @@ import (
 
 func TestAllMaxmindURLs(t *testing.T) {
 	for index := range MaxmindDownloadInfo {
-		resp, err := http.Head(MaxmindDownloadInfo[index].url + os.Getenv("MAXMIND_LICENSE_KEY"))
+		key, found := os.LookupEnv("MAXMIND_LICENSE_KEY")
+		if !found {
+			t.Error("Could not load Maxmind license key from ${MAXMIND_LICENSE_KEY}")
+			return
+		}
+		u := MaxmindDownloadInfo[index].url + key
+		resp, err := http.Head(u)
 		if err != nil || resp.StatusCode != http.StatusOK {
-			t.Errorf("Bad URL (%q), err: %v (%v)", MaxmindDownloadInfo[index].url, err, resp.StatusCode)
+			t.Errorf("Bad URL (%q), err: %v (%v)", u, err, resp.StatusCode)
 		}
 	}
 }

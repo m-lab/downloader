@@ -21,14 +21,14 @@ import (
 
 //// testStore implements the store interface for testing
 type testStore struct {
-	files map[string]testFileObject
+	files map[string]*testFileObject
 }
 
 func (fsto *testStore) GetFile(name string) file.FileObject {
 	if file, ok := fsto.files[name]; ok {
 		return file
 	}
-	return testFileObject{name: name, md5: nil, data: bytes.NewBuffer(nil), fsto: fsto}
+	return &testFileObject{name: name, md5: nil, data: bytes.NewBuffer(nil), fsto: fsto}
 }
 
 func (fsto *testStore) NamesToMD5(prefix string) map[string][]byte {
@@ -44,33 +44,39 @@ func (fsto *testStore) NamesToMD5(prefix string) map[string][]byte {
 
 //// Obj struct implements both the attrs and the object interfaces for testing
 type testFileObject struct {
-	name string
-	md5  []byte
-	data *bytes.Buffer
-	fsto *testStore
+	name   string
+	md5    []byte
+	data   *bytes.Buffer
+	fsto   *testStore
+	copied bool
 }
 
-func (file testFileObject) GetWriter() io.WriteCloser {
+func (file *testFileObject) GetWriter() io.WriteCloser {
 	return file
 }
 
-func (file testFileObject) Write(p []byte) (n int, err error) {
+func (file *testFileObject) Write(p []byte) (n int, err error) {
 	if strings.HasSuffix(file.name, "copyFail") {
 		return 0, errors.New("Example Copy Error")
 	}
 	return file.data.Write(p)
 }
 
-func (file testFileObject) Close() error {
+func (file *testFileObject) Close() error {
 	file.md5 = []byte("NEW FILE")
 	file.fsto.files[file.name] = file
 	return nil
 }
 
-func (file testFileObject) DeleteFile() error {
+func (file *testFileObject) DeleteFile() error {
 	if strings.HasSuffix(file.name, "deleteFail") {
 		return errors.New("Couldn't delete file!")
 	}
+	return nil
+}
+
+func (file *testFileObject) CopyTo(filename string) error {
+	file.copied = true
 	return nil
 }
 
@@ -94,17 +100,17 @@ func TestGenUniformSleepTime(t *testing.T) {
 
 func TestDownload(t *testing.T) {
 	tests := []struct {
-		dc      d.DownloadConfig
+		dc      d.Config
 		postfix string
 		resBool bool
 		resErr  error
 	}{
 		{
-			dc: d.DownloadConfig{
-				URL:          "Fill me",
-				Store:        &testStore{map[string]testFileObject{}},
-				PathPrefix:   "pre/",
-				URLRegexp:    regexp.MustCompile(`.*()(/.*)`),
+			dc: d.Config{
+				URL:         "Fill me",
+				Store:       &testStore{map[string]*testFileObject{}},
+				PathPrefix:  "pre/",
+				URLRegexp:   regexp.MustCompile(`.*()(/.*)`),
 				DedupRegexp: regexp.MustCompile(`(.*)`),
 			},
 			postfix: "portGarbage",
@@ -112,50 +118,50 @@ func TestDownload(t *testing.T) {
 			resErr:  errors.New("invalid URL port"),
 		},
 		{
-			dc: d.DownloadConfig{
-				URL:          "Fill me",
-				Store:        &testStore{map[string]testFileObject{}},
-				PathPrefix:   "pre/",
-				URLRegexp:    regexp.MustCompile(`.*()(/.*)`),
-				DedupRegexp:  regexp.MustCompile(`(.*)`),
+			dc: d.Config{
+				URL:         "Fill me",
+				Store:       &testStore{map[string]*testFileObject{}},
+				PathPrefix:  "pre/",
+				URLRegexp:   regexp.MustCompile(`.*()(/.*)`),
+				DedupRegexp: regexp.MustCompile(`(.*)`),
 			},
 			postfix: "/file.error",
 			resBool: false,
 			resErr:  errors.New("non-200 error"),
 		},
 		{
-			dc: d.DownloadConfig{
-				URL:          "Fill me",
-				Store:        &testStore{map[string]testFileObject{}},
-				PathPrefix:   "pre/",
-				URLRegexp:    regexp.MustCompile(`.*()(/.*)`),
-				DedupRegexp:  regexp.MustCompile(`(.*)`),
+			dc: d.Config{
+				URL:         "Fill me",
+				Store:       &testStore{map[string]*testFileObject{}},
+				PathPrefix:  "pre/",
+				URLRegexp:   regexp.MustCompile(`.*()(/.*)`),
+				DedupRegexp: regexp.MustCompile(`(.*)`),
 			},
 			postfix: "/file.copyFail",
 			resBool: false,
 			resErr:  errors.New("File copy error"),
 		},
 		{
-			dc: d.DownloadConfig{
+			dc: d.Config{
 				URL: "Fill me",
-				Store: &testStore{map[string]testFileObject{
-					"pre/file.del/dup": testFileObject{name: "pre/file.del/dup", data: bytes.NewBuffer(nil), md5: []byte("NEW FILE")},
+				Store: &testStore{map[string]*testFileObject{
+					"pre/file.del/dup": {name: "pre/file.del/dup", data: bytes.NewBuffer(nil), md5: []byte("NEW FILE")},
 				}},
-				PathPrefix:   "pre/",
-				URLRegexp:    regexp.MustCompile(`.*()(/.*)`),
-				DedupRegexp:  regexp.MustCompile(`(pre/)`),
+				PathPrefix:  "pre/",
+				URLRegexp:   regexp.MustCompile(`.*()(/.*)`),
+				DedupRegexp: regexp.MustCompile(`(pre/)`),
 			},
 			postfix: "/file.deleteFail",
 			resBool: true,
 			resErr:  errors.New("Couldn't Delete File"),
 		},
 		{
-			dc: d.DownloadConfig{
-				URL:          "Fill me",
-				Store:        &testStore{map[string]testFileObject{}},
-				PathPrefix:   "pre/",
-				URLRegexp:    regexp.MustCompile(`.*()(/.*)`),
-				DedupRegexp:  regexp.MustCompile(`(.*)`),
+			dc: d.Config{
+				URL:         "Fill me",
+				Store:       &testStore{map[string]*testFileObject{}},
+				PathPrefix:  "pre/",
+				URLRegexp:   regexp.MustCompile(`.*()(/.*)`),
+				DedupRegexp: regexp.MustCompile(`(.*)`),
 			},
 			postfix: "/file.success",
 			resBool: false,
@@ -163,7 +169,7 @@ func TestDownload(t *testing.T) {
 		},
 	}
 	if err, force := d.Download(nil); err == nil || force != true {
-		t.Errorf("Expected an improper DownloadConfig error and unrecoverable, got nil or no recoverable.")
+		t.Errorf("Expected an improper Config error and unrecoverable, got nil or no recoverable.")
 	}
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Path
@@ -259,52 +265,52 @@ func TestIsFileNew(t *testing.T) {
 		res       bool
 	}{
 		{
-			fs: &testStore{map[string]testFileObject{
-				"search/unique":     testFileObject{name: "search/unique", data: nil, md5: []byte("123")},
-				"search/thing":      testFileObject{name: "search/thing", data: nil, md5: []byte("000")},
-				"search/stuff":      testFileObject{name: "search/stuff", data: nil, md5: []byte("765")},
-				"otherDir/ignoreMe": testFileObject{name: "otherDir/ignoreMe", data: nil, md5: []byte("123")},
+			fs: &testStore{map[string]*testFileObject{
+				"search/unique":     {name: "search/unique", data: nil, md5: []byte("123")},
+				"search/thing":      {name: "search/thing", data: nil, md5: []byte("000")},
+				"search/stuff":      {name: "search/stuff", data: nil, md5: []byte("765")},
+				"otherDir/ignoreMe": {name: "otherDir/ignoreMe", data: nil, md5: []byte("123")},
 			}},
 			directory: "search/",
 			filename:  "search/unique",
 			res:       true,
 		},
 		{
-			fs: &testStore{map[string]testFileObject{
-				"search/unique":     testFileObject{name: "search/unique", data: nil, md5: []byte("123")},
-				"search/thing":      testFileObject{name: "search/thing", data: nil, md5: []byte("000")},
-				"search/stuff":      testFileObject{name: "search/stuff", data: nil, md5: []byte("123")},
-				"otherDir/ignoreMe": testFileObject{name: "otherDir/ignoreMe", data: nil, md5: []byte("765")},
+			fs: &testStore{map[string]*testFileObject{
+				"search/unique":     {name: "search/unique", data: nil, md5: []byte("123")},
+				"search/thing":      {name: "search/thing", data: nil, md5: []byte("000")},
+				"search/stuff":      {name: "search/stuff", data: nil, md5: []byte("123")},
+				"otherDir/ignoreMe": {name: "otherDir/ignoreMe", data: nil, md5: []byte("765")},
 			}},
 			directory: "search/",
 			filename:  "search/unique",
 			res:       false,
 		},
 		{
-			fs: &testStore{map[string]testFileObject{
-				"search/unique":     testFileObject{name: "search/unique", data: nil, md5: []byte("123")},
-				"search/thing":      testFileObject{name: "search/thing", data: nil, md5: []byte("000")},
-				"search/stuff":      testFileObject{name: "search/stuff", data: nil, md5: []byte("765")},
-				"otherDir/ignoreMe": testFileObject{name: "otherDir/ignoreMe", data: nil, md5: []byte("123")},
+			fs: &testStore{map[string]*testFileObject{
+				"search/unique":     {name: "search/unique", data: nil, md5: []byte("123")},
+				"search/thing":      {name: "search/thing", data: nil, md5: []byte("000")},
+				"search/stuff":      {name: "search/stuff", data: nil, md5: []byte("765")},
+				"otherDir/ignoreMe": {name: "otherDir/ignoreMe", data: nil, md5: []byte("123")},
 			}},
 			directory: "search/",
 			filename:  "otherDir/ignoreMe",
 			res:       false,
 		},
 		{
-			fs: &testStore{map[string]testFileObject{
-				"search/unique":     testFileObject{name: "search/unique", data: nil, md5: nil},
-				"search/thing":      testFileObject{name: "search/thing", data: nil, md5: []byte("000")},
-				"search/stuff":      testFileObject{name: "search/stuff", data: nil, md5: []byte("765")},
-				"otherDir/ignoreMe": testFileObject{name: "otherDir/ignoreMe", data: nil, md5: []byte("123")},
+			fs: &testStore{map[string]*testFileObject{
+				"search/unique":     {name: "search/unique", data: nil, md5: nil},
+				"search/thing":      {name: "search/thing", data: nil, md5: []byte("000")},
+				"search/stuff":      {name: "search/stuff", data: nil, md5: []byte("765")},
+				"otherDir/ignoreMe": {name: "otherDir/ignoreMe", data: nil, md5: []byte("123")},
 			}},
 			directory: "search/",
 			filename:  "search/unique",
 			res:       true,
 		},
 		{
-			fs: &testStore{map[string]testFileObject{
-				"otherDir/ignoreMe": testFileObject{name: "otherDir/ignoreMe", data: nil, md5: []byte("123")},
+			fs: &testStore{map[string]*testFileObject{
+				"otherDir/ignoreMe": {name: "otherDir/ignoreMe", data: nil, md5: []byte("123")},
 			}},
 			directory: "search/",
 			filename:  "otherDir/ignoreMe",

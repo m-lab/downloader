@@ -15,25 +15,27 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
-// The time (in minutes) to wait before the first retry of a failed
-// download
+// WaitAfterFirstDownloadFailure is the time (in minutes) to wait before the
+// first retry of a failed download
 var WaitAfterFirstDownloadFailure = time.Minute * time.Duration(1)
 
-// The maximum time (in minutes) to wait in between download attempts
+// MaximumWaitBetweenDownloadAttempts is the maximum time (in minutes) to wait
+// in between download attempts
 var MaximumWaitBetweenDownloadAttempts = time.Minute * time.Duration(8)
 
-// TODO(JosephMarques): Find a better method than using
-// backChars. Possibly regex?  downloadConfig is a struct for bundling
-// parameters to be passed through runFunctionWithRetry to the
-// download function.
-type DownloadConfig struct {
-	URL        string         // The URL of the file to download
-	Store      file.FileStore // The FileStore in which to place the file
-	PathPrefix string         // The prefix to attach to the file's path after it's downloaded
-	FilePrefix string         // The prefix to attach to the filename after it's downloaded
-	URLRegexp  *regexp.Regexp // The regular expression to apply to the URL to create the filename.
+// Config is a struct for bundling parameters to be passed through
+// runFunctionWithRetry to the download function.
+//
+// TODO: Find a better method than using backChars. Possibly regex?
+type Config struct {
+	URL         string         // The URL of the file to download
+	Store       file.FileStore // The FileStore in which to place the file
+	PathPrefix  string         // The prefix to attach to the file's path after it's downloaded
+	CurrentName string         // The name to give the most recent version of the file.
+	FilePrefix  string         // The prefix to attach to the filename after it's downloaded
+	URLRegexp   *regexp.Regexp // The regular expression to apply to the URL to create the filename.
 	// The first matching group will go before the timestamp, the second after.
-	DedupRegexp  *regexp.Regexp // The regexp to apply to the filename to determine the directory to dedupe in.
+	DedupRegexp   *regexp.Regexp // The regexp to apply to the filename to determine the directory to dedupe in.
 	FixedFilename string         // The saved file could have fixed filename.
 }
 
@@ -56,9 +58,9 @@ func GenUniformSleepTime(sleepInterval time.Duration, sleepDeviation time.Durati
 // download might work if you attempt it again. If the error value is
 // nil, then the value of the boolean is meaningless.
 func Download(config interface{}) (error, bool) {
-	dc, ok := config.(DownloadConfig)
+	dc, ok := config.(Config)
 	if !ok {
-		return errors.New("WRONG TYPE!!"), true
+		return errors.New("wrong configuration type passed to Download()"), true
 	}
 
 	// Grab the file from the website
@@ -94,8 +96,17 @@ func Download(config interface{}) (error, bool) {
 	w.Close()
 	resp.Body.Close()
 
-	// Check to make sure we didn't just download a duplicate, and delete it if we did.
-	if !IsFileNew(dc.Store, filename, dc.DedupRegexp.FindAllStringSubmatch(filename, -1)[0][1]) {
+	// If we downloaded a new file, save it to current.  If it wasn't new, delete it.
+	if IsFileNew(dc.Store, filename, dc.DedupRegexp.FindAllStringSubmatch(filename, -1)[0][1]) {
+		if dc.CurrentName != "" {
+			err = obj.CopyTo(dc.CurrentName)
+			if err != nil {
+				metrics.DownloaderErrorCount.
+					With(prometheus.Labels{"source": "Copy to Current Error"}).Inc()
+				return err, true
+			}
+		}
+	} else {
 		err = obj.DeleteFile()
 		if err != nil {
 			metrics.DownloaderErrorCount.
@@ -128,6 +139,8 @@ func RunFunctionWithRetry(function func(interface{}) (error, bool), config inter
 	}
 	return nil
 }
+
+// CopyFile copies one file in GCS to another.
 
 // IsFileNew takes an implementation of the FileStore
 // interface, a filename, and a search dir and determines if any of

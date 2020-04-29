@@ -26,6 +26,7 @@ type FileStore interface {
 type FileObject interface {
 	GetWriter() io.WriteCloser
 	DeleteFile() error
+	CopyTo(filename string) error
 }
 
 //// actual implementation of store
@@ -35,7 +36,7 @@ type StoreGCS struct {
 }
 
 func (store *StoreGCS) GetFile(name string) FileObject {
-	return &FileObjectGCS{obj: store.Bkt.Object(name)}
+	return &FileObjectGCS{bkt: store.Bkt, obj: store.Bkt.Object(name)}
 }
 
 func (store *StoreGCS) NamesToMD5(prefix string) map[string][]byte {
@@ -56,6 +57,7 @@ func (store *StoreGCS) NamesToMD5(prefix string) map[string][]byte {
 
 //// actual implementation of fileObject
 type FileObjectGCS struct {
+	bkt *storage.BucketHandle
 	obj *storage.ObjectHandle
 }
 
@@ -67,4 +69,11 @@ func (file *FileObjectGCS) GetWriter() io.WriteCloser {
 func (file *FileObjectGCS) DeleteFile() error {
 	ctx, _ := context.WithTimeout(context.Background(), contextTimeout)
 	return file.obj.Delete(ctx)
+}
+
+func (file *FileObjectGCS) CopyTo(filename string) error {
+	ctx, _ := context.WithTimeout(context.Background(), contextTimeout)
+	dst := file.bkt.Object(filename)
+	_, err := dst.CopierFrom(file.obj).Run(ctx)
+	return err
 }

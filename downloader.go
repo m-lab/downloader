@@ -99,6 +99,7 @@ func loopOverURLsForever(bucketName string, t *pubsub.Topic, maxmindLicenseKey s
 			"http://data.caida.org/datasets/routing/routeviews-prefix2as/pfx2as-creation.log",
 			"RouteViewIPv4/",
 			&lastDownloadedV4,
+			"RouteViewIPv4/current/routeview.pfx2as.gz",
 			fileStore)
 		if routeviewIPv4Err != nil {
 			log.Println(routeviewIPv4Err)
@@ -108,6 +109,7 @@ func loopOverURLsForever(bucketName string, t *pubsub.Topic, maxmindLicenseKey s
 			"http://data.caida.org/datasets/routing/routeviews6-prefix2as/pfx2as-creation.log",
 			"RouteViewIPv6/",
 			&lastDownloadedV6,
+			"RouteViewIPv6/current/routeview.pfx2as.gz",
 			fileStore)
 		if routeviewIPv6Err != nil {
 			log.Println(routeviewIPv6Err)
