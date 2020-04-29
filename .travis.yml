@@ -5,6 +5,15 @@ go:
 
 go_import_path: github.com/m-lab/downloader
 
+before_script:
+- go get github.com/mattn/goveralls
+
+script:
+- go vet ./...
+- go build ./...
+- go test ./... -cover=1 -coverprofile=_c.cov
+- go test ./... -race
+- $GOPATH/bin/goveralls -service=travis-ci -coverprofile=_c.cov
 
 # Cache Gcloud SDK between commands
 cache:
