@@ -2,6 +2,7 @@ package download
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -23,14 +24,14 @@ type testStore struct {
 	files map[string]*testFileObject
 }
 
-func (fsto *testStore) GetFile(name string) file.FileObject {
+func (fsto *testStore) GetFile(name string) file.Object {
 	if file, ok := fsto.files[name]; ok {
 		return file
 	}
 	return &testFileObject{name: name, md5: nil, data: bytes.NewBuffer(nil), fsto: fsto}
 }
 
-func (fsto *testStore) NamesToMD5(prefix string) map[string][]byte {
+func (fsto *testStore) NamesToMD5(_ context.Context, prefix string) map[string][]byte {
 	attrMap := make(map[string][]byte)
 	for key, object := range fsto.files {
 		if strings.HasPrefix(key, prefix) {
@@ -50,7 +51,7 @@ type testFileObject struct {
 	copied bool
 }
 
-func (file *testFileObject) GetWriter() io.WriteCloser {
+func (file *testFileObject) GetWriter(_ context.Context) io.WriteCloser {
 	return file
 }
 
@@ -67,14 +68,14 @@ func (file *testFileObject) Close() error {
 	return nil
 }
 
-func (file *testFileObject) DeleteFile() error {
+func (file *testFileObject) DeleteFile(_ context.Context) error {
 	if strings.HasSuffix(file.name, "deleteFail") {
 		return errors.New("couldn't delete file")
 	}
 	return nil
 }
 
-func (file *testFileObject) CopyTo(filename string) error {
+func (file *testFileObject) CopyTo(_ context.Context, filename string) error {
 	file.copied = true
 	return nil
 }
@@ -167,9 +168,6 @@ func TestDownload(t *testing.T) {
 			resErr:  nil,
 		},
 	}
-	if err, force := download(nil); err == nil || force != true {
-		t.Errorf("Expected an improper Config error and unrecoverable, got nil or no recoverable.")
-	}
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Path
 		if strings.HasSuffix(path, "error") {
@@ -180,9 +178,9 @@ func TestDownload(t *testing.T) {
 	}))
 	for _, test := range tests {
 		test.dc.URL = ts.URL + test.postfix
-		err, resBool := download(test.dc)
-		if test.resBool != resBool || (err != nil && test.resErr == nil) || (err == nil && test.resErr != nil) {
-			t.Errorf("Expected %s, %t got %s, %t", test.resErr, test.resBool, err, resBool)
+		err := download(context.Background(), test.dc)
+		if test.resBool != err.permanent || (err.error != nil && test.resErr == nil) || (err.error == nil && test.resErr != nil) {
+			t.Errorf("Expected %s, %t got %s, %t", test.resErr, test.resBool, err.error, err.permanent)
 		}
 
 	}
@@ -194,12 +192,20 @@ type retryTest struct {
 	numError int
 }
 
-// RunFunctionWithRetry takes an arbitrary function and an interface{} that will
+func (rt *retryTest) fakeDownload(ctx context.Context, _ config) errWithPermanence {
+	if rt.numError == 0 {
+		return errWithPermanence{nil, rt.force}
+	}
+	rt.numError--
+	return errWithPermanence{errors.New("runFunction Error"), rt.force}
+}
+
+// runFunctionWithRetry takes an arbitrary function and an interface{} that will
 // be passed to it. So for this test, we create an anonymous function, which
 // will return a certain number of errors before the call succeeds. The function
 // will also return whether or not the error is unrecoverable, based on what we
 // pass into it. This allows us to test all three possible paths for
-// RunFunctionWithRetry: Run and succeed, run and fail until timeout, run and
+// runFunctionWithRetry: Run and succeed, run and fail until timeout, run and
 // fail a few times before succeeding, and run and fail with an error that
 // forces an immediate exit
 func TestRunFunctionWithRetry(t *testing.T) {
@@ -240,16 +246,8 @@ func TestRunFunctionWithRetry(t *testing.T) {
 			res:          errors.New("runFunction Error 3"),
 		},
 	}
-	f := func(i interface{}) (error, bool) {
-		rt := i.(*retryTest)
-		if rt.numError == 0 {
-			return nil, rt.force
-		}
-		rt.numError--
-		return errors.New("runFunction Error"), rt.force
-	}
 	for _, test := range tests {
-		res := RunFunctionWithRetry(f, test.data, test.retryTimeMin, test.retryTimeMax)
+		res := runFunctionWithRetry(context.Background(), test.data.fakeDownload, config{}, test.retryTimeMin, test.retryTimeMax)
 		if (res != nil && test.res == nil) || (res == nil && test.res != nil) {
 			t.Errorf("Expected %s, got %s", test.res, res)
 		}
@@ -318,7 +316,7 @@ func TestIsFileNew(t *testing.T) {
 		},
 	}
 	for _, test := range tests {
-		res := IsFileNew(test.fs, test.filename, test.directory)
+		res := IsFileNew(context.Background(), test.fs, test.filename, test.directory)
 		if res != test.res {
 			t.Errorf("Expected %t, got %t for %+v.", test.res, res, test)
 		}

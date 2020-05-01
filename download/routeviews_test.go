@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/m-lab/downloader/file"
+	"golang.org/x/net/context"
 )
 
 func TestDownloadCaidaRouteviewsFiles(t *testing.T) {
@@ -18,7 +19,7 @@ func TestDownloadCaidaRouteviewsFiles(t *testing.T) {
 		dir     string
 		lastD   int
 		lastS   int
-		fsto    file.FileStore
+		fsto    file.Store
 		res     error
 	}{
 		{
@@ -46,7 +47,7 @@ func TestDownloadCaidaRouteviewsFiles(t *testing.T) {
 			res:     errors.New("3"),
 		},
 	}
-	maximumWaitBetweenDownloadAttempts = 0
+	*maximumWaitBetweenDownloadAttempts = 0
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Path
 		if strings.HasSuffix(path, "logFile1") {
@@ -90,7 +91,7 @@ func TestDownloadCaidaRouteviewsFiles(t *testing.T) {
 		fmt.Fprint(w, r.URL.String())
 	}))
 	for _, test := range tests {
-		res := CaidaRouteviewsFiles(ts.URL+test.logFile, test.dir, &test.lastD, "", test.fsto)
+		res := CaidaRouteviewsFiles(context.Background(), ts.URL+test.logFile, test.dir, &test.lastD, "", test.fsto)
 		if (res == nil && test.res != nil) || (res != nil && test.res == nil) {
 			t.Errorf("Expected %t, got %t!!!", test.res, res)
 		}

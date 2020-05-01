@@ -1,6 +1,7 @@
 package download
 
 import (
+	"context"
 	"regexp"
 	"time"
 
@@ -48,7 +49,7 @@ var maxmindDownloadInfo = []struct {
 // interface where the user wants the files stored. It then downloads the files,
 // stores them, and returns and error on failure or nil on success. Guaranteed
 // to not introduce duplicates.
-func MaxmindFiles(timestamp string, store file.FileStore, maxmindLicenseKey string) error {
+func MaxmindFiles(ctx context.Context, timestamp string, store file.Store, maxmindLicenseKey string) error {
 	var lastErr error
 	for _, info := range maxmindDownloadInfo {
 		dc := config{
@@ -58,9 +59,10 @@ func MaxmindFiles(timestamp string, store file.FileStore, maxmindLicenseKey stri
 			CurrentName:   info.current,
 			FilePrefix:    time.Now().UTC().Format("20060102T150405Z-"),
 			FixedFilename: info.filename,
-			DedupRegexp:   maxmindFilenameToDedupRegexp}
-		if err := RunFunctionWithRetry(download, dc, waitAfterFirstDownloadFailure,
-			maximumWaitBetweenDownloadAttempts); err != nil {
+			DedupRegexp:   maxmindFilenameToDedupRegexp,
+			MaxDuration:   *downloadTimeout,
+		}
+		if err := runFunctionWithRetry(ctx, download, dc, *waitAfterFirstDownloadFailure, *maximumWaitBetweenDownloadAttempts); err != nil {
 			lastErr = err
 			metrics.FailedDownloadCount.With(prometheus.Labels{"download_type": "Maxmind"}).Inc()
 		}

@@ -26,10 +26,16 @@ const averageHoursBetweenUpdateChecks = 8 * time.Hour
 // from.
 const windowForRandomTimeBetweenUpdateChecks = 4 * time.Hour
 
+var (
+	mainCtx, mainCancel = context.WithCancel(context.Background())
+)
+
 // The main function seeds the random number generator, starts
 // prometheus in the background, takes the bucket flag from the
 // command line, and kicks off the actual downloader loop
 func main() {
+	defer mainCancel()
+
 	bucketName := flag.String("bucket", "", "Specify the bucket name to store the results in.")
 	projectName := flag.String("project", "", "Specify the project name to send the pub/sub in.")
 	maxmindLicenseKey := flag.String("maxmind_license_key", "", "the license key for maxmind downloading.")
@@ -45,30 +51,31 @@ func main() {
 	}
 	rand.Seed(time.Now().UTC().UnixNano())
 	prometheusx.MustServeMetrics()
-	loopOverURLsForever(*bucketName, *maxmindLicenseKey)
+	loopOverURLsForever(mainCtx, *bucketName, *maxmindLicenseKey)
 }
 
 // loopOverURLsForever takes a bucketName, pointing to a GCS bucket,
 // and then tries to download the files over and over again until the
 // end of time (waiting an average of 8 hours in between attempts)
-func loopOverURLsForever(bucketName string, maxmindLicenseKey string) {
+func loopOverURLsForever(ctx context.Context, bucketName string, maxmindLicenseKey string) {
 	// TODO: consider migrating to github.com/m-lab/go/memoryless
 	lastDownloadedV4 := 0
 	lastDownloadedV6 := 0
-	for {
+	for ctx.Err() == nil {
 		timestamp := time.Now().Format("2006/01/02/")
 		bkt, err := constructBucketHandle(bucketName)
 		if err != nil {
 			continue
 		}
-		fileStore := &file.StoreGCS{Bkt: bkt}
+		fileStore := file.GCSStore(bkt)
 
-		maxmindErr := download.MaxmindFiles(timestamp, fileStore, maxmindLicenseKey)
+		maxmindErr := download.MaxmindFiles(ctx, timestamp, fileStore, maxmindLicenseKey)
 		if maxmindErr != nil {
 			log.Println(maxmindErr)
 		}
 
 		routeviewIPv4Err := download.CaidaRouteviewsFiles(
+			ctx,
 			"http://data.caida.org/datasets/routing/routeviews-prefix2as/pfx2as-creation.log",
 			"RouteViewIPv4/",
 			&lastDownloadedV4,
@@ -79,6 +86,7 @@ func loopOverURLsForever(bucketName string, maxmindLicenseKey string) {
 		}
 
 		routeviewIPv6Err := download.CaidaRouteviewsFiles(
+			ctx,
 			"http://data.caida.org/datasets/routing/routeviews6-prefix2as/pfx2as-creation.log",
 			"RouteViewIPv6/",
 			&lastDownloadedV6,

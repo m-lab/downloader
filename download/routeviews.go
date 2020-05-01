@@ -2,6 +2,7 @@ package download
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"net/http"
 	"regexp"
@@ -13,8 +14,10 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
-var routeviewsURLToFilenameRegexp = regexp.MustCompile(`.*(\d{4}/\d{2}/)(.*)`)
-var routeviewsFilenameToDedupeRegexp = regexp.MustCompile(`(.*)`)
+var (
+	routeviewsURLToFilenameRegexp    = regexp.MustCompile(`.*(\d{4}/\d{2}/)(.*)`)
+	routeviewsFilenameToDedupeRegexp = regexp.MustCompile(`(.*)`)
+)
 
 // urlAndSeqNum is a struct for bundling the Routeview URL and Seqnum
 // together into a single struct. This is the return value of the
@@ -33,7 +36,7 @@ type urlAndSeqNum struct {
 // and the instance of the store interface where the user wants the
 // files stored. It will download the files listed in the log file and
 // is guaranteed not to introduce duplicates
-func CaidaRouteviewsFiles(logFileURL string, directory string, lastDownloaded *int, canonicalName string, store file.FileStore) error {
+func CaidaRouteviewsFiles(ctx context.Context, logFileURL string, directory string, lastDownloaded *int, canonicalName string, store file.Store) error {
 	var lastErr error
 	routeViewsURLsAndIDs, err := genRouteViewURLs(logFileURL, *lastDownloaded)
 	if err != nil {
@@ -48,9 +51,9 @@ func CaidaRouteviewsFiles(logFileURL string, directory string, lastDownloaded *i
 			CurrentName: canonicalName,
 			URLRegexp:   routeviewsURLToFilenameRegexp,
 			DedupRegexp: routeviewsFilenameToDedupeRegexp,
+			MaxDuration: *downloadTimeout,
 		}
-		if err := RunFunctionWithRetry(download, dc, waitAfterFirstDownloadFailure,
-			maximumWaitBetweenDownloadAttempts); err != nil {
+		if err := runFunctionWithRetry(ctx, download, dc, *waitAfterFirstDownloadFailure, *maximumWaitBetweenDownloadAttempts); err != nil {
 			lastErr = err
 			metrics.FailedDownloadCount.With(prometheus.Labels{"download_type": directory}).Inc()
 		}

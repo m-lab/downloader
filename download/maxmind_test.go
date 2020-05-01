@@ -6,6 +6,10 @@ import (
 	"testing"
 )
 
+// We bundle the config with the code in downloader. As long as we are doing
+// that, then we should verify that the configured URLs actually work.
+//
+// TODO: Distribute the configuration and code separately.
 func TestAllMaxmindURLs(t *testing.T) {
 	for index := range maxmindDownloadInfo {
 		key, found := os.LookupEnv("MAXMIND_LICENSE_KEY")
