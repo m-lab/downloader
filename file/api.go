@@ -34,8 +34,8 @@ type Object interface {
 	CopyTo(ctx context.Context, filename string) error
 }
 
-// GCSStore adapts a bucket handle into a file.Store.
-func GCSStore(bkt *storage.BucketHandle) Store {
+// NewGCSStore adapts a bucket handle into a file.Store.
+func NewGCSStore(bkt *storage.BucketHandle) Store {
 	return &storeGCS{Bkt: bkt}
 }
 

@@ -67,7 +67,7 @@ func loopOverURLsForever(ctx context.Context, bucketName string, maxmindLicenseK
 		if err != nil {
 			continue
 		}
-		fileStore := file.GCSStore(bkt)
+		fileStore := file.NewGCSStore(bkt)
 
 		maxmindErr := download.MaxmindFiles(ctx, timestamp, fileStore, maxmindLicenseKey)
 		if maxmindErr != nil {

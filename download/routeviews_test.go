@@ -1,6 +1,7 @@
 package download
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -10,7 +11,6 @@ import (
 	"testing"
 
 	"github.com/m-lab/downloader/file"
-	"golang.org/x/net/context"
 )
 
 func TestDownloadCaidaRouteviewsFiles(t *testing.T) {
