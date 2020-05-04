@@ -405,3 +405,11 @@ func TestCheckIfHashIsUniqueInList(t *testing.T) {
 	}
 
 }
+
+func assertErrWithPermanenceIsAnError(e errWithPermanence) error {
+	return e
+}
+
+func assertErrWithPermanencePointerIsAnError(e *errWithPermanence) error {
+	return e
+}
