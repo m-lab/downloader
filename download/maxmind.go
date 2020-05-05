@@ -1,6 +1,7 @@
 package download
 
 import (
+	"context"
 	"regexp"
 	"time"
 
@@ -11,9 +12,10 @@ import (
 
 var maxmindFilenameToDedupRegexp = regexp.MustCompile(`(.*/).*/.*`)
 
-var MaxmindDownloadInfo = []struct {
+var maxmindDownloadInfo = []struct {
 	url      string
 	filename string
+	current  string
 }{
 	{
 		url:      "https://download.maxmind.com/app/geoip_download?edition_id=GeoLite2-ASN&suffix=tar.gz&license_key=",
@@ -26,6 +28,7 @@ var MaxmindDownloadInfo = []struct {
 	{
 		url:      "https://download.maxmind.com/app/geoip_download?edition_id=GeoLite2-City&suffix=tar.gz&license_key=",
 		filename: "GeoLite2-City.tar.gz",
+		current:  "Maxmind/current/GeoLite2-City.tar.gz",
 	},
 	{
 		url:      "https://download.maxmind.com/app/geoip_download?edition_id=GeoLite2-City-CSV&suffix=zip&license_key=",
@@ -39,27 +42,27 @@ var MaxmindDownloadInfo = []struct {
 		url:      "https://download.maxmind.com/app/geoip_download?edition_id=GeoLite2-Country-CSV&suffix=zip&license_key=",
 		filename: "GeoLite2-Country-CSV.zip",
 	},
-	
 }
 
-// DownloadMaxmindFiles takes a slice of urls pointing to maxmind
-// files, a timestamp that the user wants attached to the files, and
-// the instance of the FileStore interface where the user wants the
-// files stored. It then downloads the files, stores them, and returns
-// and error on failure or nil on success. Gaurenteed to not introduce
-// duplicates.
-func DownloadMaxmindFiles(timestamp string, store file.FileStore, maxmindLicenseKey string) error {
-	var lastErr error = nil
-	for index := range MaxmindDownloadInfo {
-		dc := DownloadConfig{
-			URL:           MaxmindDownloadInfo[index].url + maxmindLicenseKey,
+// MaxmindFiles takes a slice of urls pointing to maxmind files, a timestamp
+// that the user wants attached to the files, and the instance of the FileStore
+// interface where the user wants the files stored. It then downloads the files,
+// stores them, and returns and error on failure or nil on success. Guaranteed
+// to not introduce duplicates.
+func MaxmindFiles(ctx context.Context, timestamp string, store file.Store, maxmindLicenseKey string) error {
+	var lastErr error
+	for _, info := range maxmindDownloadInfo {
+		dc := config{
+			URL:           info.url + maxmindLicenseKey,
 			Store:         store,
 			PathPrefix:    "Maxmind/" + timestamp,
+			CurrentName:   info.current,
 			FilePrefix:    time.Now().UTC().Format("20060102T150405Z-"),
-			FixedFilename: MaxmindDownloadInfo[index].filename,
-			DedupRegexp:  maxmindFilenameToDedupRegexp}
-		if err := RunFunctionWithRetry(Download, dc, WaitAfterFirstDownloadFailure,
-			MaximumWaitBetweenDownloadAttempts); err != nil {
+			FixedFilename: info.filename,
+			DedupRegexp:   maxmindFilenameToDedupRegexp,
+			MaxDuration:   *downloadTimeout,
+		}
+		if err := runFunctionWithRetry(ctx, download, dc, *waitAfterFirstDownloadFailure, *maximumWaitBetweenDownloadAttempts); err != nil {
 			lastErr = err
 			metrics.FailedDownloadCount.With(prometheus.Labels{"download_type": "Maxmind"}).Inc()
 		}

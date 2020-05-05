@@ -2,6 +2,7 @@ package download
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"net/http"
 	"regexp"
@@ -13,13 +14,15 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
-var routeviewsURLToFilenameRegexp = regexp.MustCompile(`.*(\d{4}/\d{2}/)(.*)`)
-var routeviewsFilenameToDedupeRegexp = regexp.MustCompile(`(.*)`)
+var (
+	routeviewsURLToFilenameRegexp    = regexp.MustCompile(`.*(\d{4}/\d{2}/)(.*)`)
+	routeviewsFilenameToDedupeRegexp = regexp.MustCompile(`(.*)`)
+)
 
 // urlAndSeqNum is a struct for bundling the Routeview URL and Seqnum
 // together into a single struct. This is the return value of the
 // genRouteviewsURLs function
-type UrlAndSeqNum struct {
+type urlAndSeqNum struct {
 	URL    string // The URL pointing to the file we need to download
 	Seqnum int    // The seqnum of the file, as given in the
 	// routeview generation log file. An example of
@@ -27,23 +30,30 @@ type UrlAndSeqNum struct {
 	// http://data.caida.org/datasets/routing/routeviews-prefix2as/pfx2as-creation.log
 }
 
-// DownloadRouteviewsFiles takes a url pointing to a routeview
+// CaidaRouteviewsFiles takes a url pointing to a routeview
 // generation log, a directory prefix that the user wants the files
 // placed in, a pointer to the SeqNum of the last successful download,
 // and the instance of the store interface where the user wants the
 // files stored. It will download the files listed in the log file and
-// is gaurenteed not to introduce duplicates
-func DownloadCaidaRouteviewsFiles(logFileURL string, directory string, lastDownloaded *int, store file.FileStore) error {
-	var lastErr error = nil
-	routeViewsURLsAndIDs, err := GenRouteViewURLs(logFileURL, *lastDownloaded)
+// is guaranteed not to introduce duplicates
+func CaidaRouteviewsFiles(ctx context.Context, logFileURL string, directory string, lastDownloaded *int, canonicalName string, store file.Store) error {
+	var lastErr error
+	routeViewsURLsAndIDs, err := genRouteViewURLs(logFileURL, *lastDownloaded)
 	if err != nil {
 		return err
 	}
 	for _, urlAndID := range routeViewsURLsAndIDs {
-		dc := DownloadConfig{URL: urlAndID.URL, Store: store, PathPrefix: directory, FilePrefix: "",
-			URLRegexp: routeviewsURLToFilenameRegexp, DedupRegexp: routeviewsFilenameToDedupeRegexp}
-		if err := RunFunctionWithRetry(Download, dc, WaitAfterFirstDownloadFailure,
-			MaximumWaitBetweenDownloadAttempts); err != nil {
+		dc := config{
+			URL:         urlAndID.URL,
+			Store:       store,
+			PathPrefix:  directory,
+			FilePrefix:  "",
+			CurrentName: canonicalName,
+			URLRegexp:   routeviewsURLToFilenameRegexp,
+			DedupRegexp: routeviewsFilenameToDedupeRegexp,
+			MaxDuration: *downloadTimeout,
+		}
+		if err := runFunctionWithRetry(ctx, download, dc, *waitAfterFirstDownloadFailure, *maximumWaitBetweenDownloadAttempts); err != nil {
 			lastErr = err
 			metrics.FailedDownloadCount.With(prometheus.Labels{"download_type": directory}).Inc()
 		}
@@ -55,13 +65,13 @@ func DownloadCaidaRouteviewsFiles(logFileURL string, directory string, lastDownl
 
 }
 
-// GenRouteViewsURLs takes a URL pointing to a routeview log file, and
+// genRouteViewURLs takes a URL pointing to a routeview log file, and
 // an integer corresponding to the seqnum of the last successful file
 // download. It returns a slice of urlAndSeqNum structs which contain
 // the files that the user needs to download from the routeview
 // webserver.
-func GenRouteViewURLs(logFileURL string, lastDownloaded int) ([]UrlAndSeqNum, error) {
-	var urlsAndIDs []UrlAndSeqNum = nil
+func genRouteViewURLs(logFileURL string, lastDownloaded int) ([]urlAndSeqNum, error) {
+	var urlsAndIDs []urlAndSeqNum
 
 	// Compile parser regex
 	re := regexp.MustCompile(`(\d{1,6})\s*(\d{10})\s*(.*)`)
@@ -96,7 +106,7 @@ func GenRouteViewURLs(logFileURL string, lastDownloaded int) ([]UrlAndSeqNum, er
 		}
 		if seqNum > lastDownloaded {
 			urlsAndIDs = append(urlsAndIDs,
-				UrlAndSeqNum{logFileURL[:strings.LastIndex(logFileURL, "/")+1] + match[3], seqNum})
+				urlAndSeqNum{logFileURL[:strings.LastIndex(logFileURL, "/")+1] + match[3], seqNum})
 		}
 	}
 	return urlsAndIDs, nil

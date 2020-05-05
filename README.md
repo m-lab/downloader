@@ -1,3 +1,5 @@
+[downloader](https://github.com/m-lab/downloader) [![Version](https://img.shields.io/github/tag/m-lab/downloader.svg)](https://github.com/m-lab/downloader/releases) [![Build Status](https://travis-ci.org/m-lab/downloader.svg?branch=master)](https://travis-ci.org/m-lab/downloader) [![Coverage Status](https://coveralls.io/repos/m-lab/downloader/badge.svg?branch=master)](https://coveralls.io/github/m-lab/downloader?branch=master) [![GoDoc](https://godoc.org/github.com/m-lab/downloader?status.svg)](https://godoc.org/github.com/m-lab/downloader) [![Go Report Card](https://goreportcard.com/badge/github.com/m-lab/downloader)](https://goreportcard.com/report/github.com/m-lab/downloader)
+
 # downloader
 The Downloader tool runs on Google Container Engine and will scrape the Maxmind
 and Routeviews for new data. It will download them from the websites and place

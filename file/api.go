@@ -1,10 +1,11 @@
-// The file package exports a generic file interface that we use to
-// access Google Cloud Storage. None of the functions here are
-// unit-testable because they are all either interfaces or connect to
-// Google Cloud Storage, which cannot be unit tested.
+// Package file exports a generic file interface that we use to access Google
+// Cloud Storage. None of the functions here are unit-testable because they are
+// all either interfaces or connect to Google Cloud Storage, which cannot be
+// unit tested.
 package file
 
 import (
+	"flag"
 	"io"
 	"time"
 
@@ -16,36 +17,45 @@ import (
 	"google.golang.org/api/iterator"
 )
 
-const contextTimeout time.Duration = 2 * time.Minute
+var (
+	gcsCopyTimeout = flag.Duration("file.gcscopytimeout", 2*time.Minute, "Maximum time to wait for a file to copy on GCS")
+)
 
-type FileStore interface {
-	GetFile(name string) FileObject
-	NamesToMD5(prefix string) map[string][]byte
+// Store is the mockable interface to the functionality we need from CGS.
+type Store interface {
+	GetFile(name string) Object
+	NamesToMD5(ctx context.Context, prefix string) map[string][]byte
 }
 
-type FileObject interface {
-	GetWriter() io.WriteCloser
-	DeleteFile() error
+// Object is the mockable interface to the functionality we need from a single CGS object.
+type Object interface {
+	GetWriter(ctx context.Context) io.WriteCloser
+	DeleteFile(ctx context.Context) error
+	CopyTo(ctx context.Context, filename string) error
 }
 
-//// actual implementation of store
+// NewGCSStore adapts a bucket handle into a file.Store.
+func NewGCSStore(bkt *storage.BucketHandle) Store {
+	return &storeGCS{Bkt: bkt}
+}
 
-type StoreGCS struct {
+/// GCS implementation of file.Store
+
+type storeGCS struct {
 	Bkt *storage.BucketHandle
 }
 
-func (store *StoreGCS) GetFile(name string) FileObject {
-	return &FileObjectGCS{obj: store.Bkt.Object(name)}
+func (store *storeGCS) GetFile(name string) Object {
+	return &fileObjectGCS{bkt: store.Bkt, obj: store.Bkt.Object(name)}
 }
 
-func (store *StoreGCS) NamesToMD5(prefix string) map[string][]byte {
-	ctx, _ := context.WithTimeout(context.Background(), contextTimeout)
+func (store *storeGCS) NamesToMD5(ctx context.Context, prefix string) map[string][]byte {
 	objects := store.Bkt.Objects(ctx, &storage.Query{Prefix: ""})
-	var namesAndMD5s map[string][]byte = make(map[string][]byte)
+	namesAndMD5s := make(map[string][]byte)
 	for object, err := objects.Next(); err != iterator.Done; object, err = objects.Next() {
 		if err != nil {
 			metrics.DownloaderErrorCount.
-				With(prometheus.Labels{"source": "Unkown Error in iterator in checkIfHashIsUniqueInList"}).
+				With(prometheus.Labels{"source": "Unknown Error in iterator in checkIfHashIsUniqueInList"}).
 				Inc()
 		}
 		namesAndMD5s[object.Name] = object.MD5
@@ -54,17 +64,24 @@ func (store *StoreGCS) NamesToMD5(prefix string) map[string][]byte {
 
 }
 
-//// actual implementation of fileObject
-type FileObjectGCS struct {
+// GCS implementation of file.Object
+type fileObjectGCS struct {
+	bkt *storage.BucketHandle
 	obj *storage.ObjectHandle
 }
 
-func (file *FileObjectGCS) GetWriter() io.WriteCloser {
-	ctx, _ := context.WithTimeout(context.Background(), contextTimeout)
+func (file *fileObjectGCS) GetWriter(ctx context.Context) io.WriteCloser {
 	return file.obj.NewWriter(ctx)
 }
 
-func (file *FileObjectGCS) DeleteFile() error {
-	ctx, _ := context.WithTimeout(context.Background(), contextTimeout)
+func (file *fileObjectGCS) DeleteFile(ctx context.Context) error {
 	return file.obj.Delete(ctx)
+}
+
+func (file *fileObjectGCS) CopyTo(ctx context.Context, filename string) error {
+	ctx, cancel := context.WithTimeout(ctx, *gcsCopyTimeout)
+	defer cancel()
+	dst := file.bkt.Object(filename)
+	_, err := dst.CopierFrom(file.obj).Run(ctx)
+	return err
 }
