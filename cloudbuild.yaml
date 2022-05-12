@@ -32,6 +32,7 @@ steps:
   - go test ./... -race
   env:
   - WORKSPACE_LINK=/go/src/github.com/m-lab/downloader
+  - MAXMIND_LICENSE_KEY=$_MAXMIND_LICENSE_KEY
 
 # Build and deploy.
 - name: gcr.io/cloud-builders/docker
