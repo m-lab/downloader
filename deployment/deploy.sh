@@ -17,6 +17,6 @@ find ./deployment/templates/ -a -type f -a -print -a \
        --expression="s|{{GITHUB_COMMIT}}|${GIT_COMMIT}|" \
        --expression="s|{{PROJECT_NAME}}|${PROJECT_NAME}|" \
        --expression="s|{{BUCKET_NAME}}|${BUCKET_NAME}|" \
-       --in-place $f
+       --in-place {} \;
 
 kubectl apply -f ./deployment/templates/deploy-downloader.yaml
