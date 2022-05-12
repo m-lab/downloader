@@ -60,4 +60,4 @@ steps:
   - MAXMIND_LICENSE_KEY=$_MAXMIND_LICENSE_KEY
   # For the kubectl docker image script.
   - CLOUDSDK_COMPUTE_REGION=us-east1
-  - CLOUDSDK_CONTAINER_CLUSTER=downloader-$PROJECT_ID
+  - CLOUDSDK_CONTAINER_CLUSTER=data-processing
