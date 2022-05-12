@@ -18,6 +18,5 @@ MAXMIND_LICENSE_KEY=${MAXMIND_LICENSE_KEY:?Please specify the \$MAXMIND_LICENSE_
 ./travis/substitute_values.sh ./deployment/templates/ GITHUB_COMMIT \
     ${GIT_COMMIT} PROJECT_NAME ${PROJECT_NAME} BUCKET_NAME ${BUCKET_NAME}
 
-
 ./travis/kudo.sh $PROJECT_NAME $CLUSTER_NAME kubectl apply \
     -f ./deployment/templates/deploy-downloader.yaml
