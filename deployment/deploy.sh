@@ -2,25 +2,21 @@
 set -e
 set -x
 
-USAGE="$0 <project name> <cluster name> <bucket name> <base64 service account key text>"
-PROJECT_NAME=${1:?Please provide a project name: $USAGE}
-CLUSTER_NAME=${2:?Please specify the name of the cluster: $USAGE}
-BUCKET_NAME=${3:?Please specify the name of the bucket where you want files saved: $USAGE}
-GCLOUD_SERVICE_KEY=${4:?Please enter the base64 encoded json keyfile: $USAGE}
-
-echo $GCLOUD_SERVICE_KEY | base64 --decode -i > /tmp/${PROJECT_NAME}.json
-gcloud auth activate-service-account --key-file /tmp/${PROJECT_NAME}.json
+PROJECT_NAME=${PROJECT_NAME:?Please provide a \$PROJECT_NAME}
+CLUSTER_NAME=${CLUSTER_NAME:?Please specify the \$CLUSTER_NAME}
+BUCKET_NAME=${BUCKET_NAME:?Please specify the \$BUCKET_NAME where you want files saved}
+MAXMIND_LICENSE_KEY=${MAXMIND_LICENSE_KEY:?Please specify the \$MAXMIND_LICENSE_KEY}
 
 ./travis/kudo.sh $PROJECT_NAME $CLUSTER_NAME kubectl create \
-  secret generic downloader-secret --from-literal=license_key=$MAXMIND_LICENSE_KEY \
-  --from-file=key.json=/tmp/${PROJECT_NAME}.json \
-  --dry-run -o json | ./travis/kudo.sh $PROJECT_NAME $CLUSTER_NAME kubectl apply -f -
+  secret generic downloader-secret \
+    --from-literal=license_key=$MAXMIND_LICENSE_KEY \
+    --dry-run -o json | ./travis/kudo.sh $PROJECT_NAME $CLUSTER_NAME kubectl apply -f -
 
 ./travis/build_and_push_container.sh \
-    gcr.io/${PROJECT_NAME}/downloader:$TRAVIS_COMMIT $PROJECT_NAME
+    gcr.io/${PROJECT_NAME}/downloader:$GIT_COMMIT $PROJECT_NAME
 
 ./travis/substitute_values.sh ./deployment/templates/ GITHUB_COMMIT \
-    $TRAVIS_COMMIT PROJECT_NAME ${PROJECT_NAME} BUCKET_NAME ${BUCKET_NAME}
+    ${GIT_COMMIT} PROJECT_NAME ${PROJECT_NAME} BUCKET_NAME ${BUCKET_NAME}
 
 
 ./travis/kudo.sh $PROJECT_NAME $CLUSTER_NAME kubectl apply \
