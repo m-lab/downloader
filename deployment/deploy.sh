@@ -12,7 +12,7 @@ kubectl create \
     --from-literal=license_key=${MAXMIND_LICENSE_KEY} \
     --dry-run -o json | kubectl apply -f -
 
-find ./deployment/templates/ -a -type f -a -print -a \
+find ./deployment/templates/ -type f -a -print -a \
    -exec sed \
        --expression="s|{{GITHUB_COMMIT}}|${GIT_COMMIT}|" \
        --expression="s|{{PROJECT_NAME}}|${PROJECT_NAME}|" \
