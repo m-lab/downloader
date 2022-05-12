@@ -12,7 +12,11 @@ kubectl create \
     --from-literal=license_key=${MAXMIND_LICENSE_KEY} \
     --dry-run -o json | kubectl apply -f -
 
-./travis/substitute_values.sh ./deployment/templates/ GITHUB_COMMIT \
-    ${GIT_COMMIT} PROJECT_NAME ${PROJECT_NAME} BUCKET_NAME ${BUCKET_NAME}
+find ./deployment/templates/ -a -type f -a -print -a \
+   -exec sed \
+       --expression="s|{{GITHUB_COMMIT}}|${GIT_COMMIT}|" \
+       --expression="s|{{PROJECT_NAME}}|${PROJECT_NAME}|" \
+       --expression="s|{{BUCKET_NAME}}|${BUCKET_NAME}|" \
+       --in-place $f
 
 kubectl apply -f ./deployment/templates/deploy-downloader.yaml
