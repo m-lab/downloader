@@ -6,7 +6,7 @@ go:
 go_import_path: github.com/m-lab/downloader
 
 before_script:
-- go get github.com/mattn/goveralls
+- go install github.com/mattn/goveralls@latest
 
 script:
 - go vet ./...
