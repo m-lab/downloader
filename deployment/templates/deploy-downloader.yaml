@@ -55,4 +55,4 @@ spec:
       securityContext: {}
       terminationGracePeriodSeconds: 30
       nodeSelector:
-        parser-node: "true"
+        downloader-node: "true"
