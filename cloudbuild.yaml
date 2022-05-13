@@ -7,14 +7,6 @@ options:
   - GIT_COMMIT=$COMMIT_SHA
 
 steps:
-# Fetch travis submodule.
-- name: gcr.io/cloud-builders/git
-  id: "Unshallow git clone"
-  args: ["fetch", "--unshallow"]
-- name: gcr.io/cloud-builders/git
-  id: "Update travis submodule"
-  args: ["submodule", "update", "--init", "--recursive"]
-
 # Run tests.
 - name: gcr.io/cloud-builders/docker
   id: "Build the testing docker container"
