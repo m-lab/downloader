@@ -47,9 +47,8 @@ steps:
   ]
   env:
   - PROJECT_NAME=$PROJECT_ID
-  - CLUSTER_NAME=data-processing
   - BUCKET_NAME=downloader-$PROJECT_ID
   - MAXMIND_LICENSE_KEY=$_MAXMIND_LICENSE_KEY
   # For the kubectl docker image script.
-  - CLOUDSDK_COMPUTE_REGION=us-east1
+  - CLOUDSDK_COMPUTE_REGION=$_CLUSTER_REGION
   - CLOUDSDK_CONTAINER_CLUSTER=data-processing
