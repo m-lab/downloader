@@ -41,9 +41,6 @@ spec:
               name: downloader-secret
               key: license_key
         image: gcr.io/{{PROJECT_NAME}}/downloader:{{GITHUB_COMMIT}}
-        volumeMounts:
-          - name: google-cloud-key
-            mountPath: /var/secrets/google
         imagePullPolicy: IfNotPresent
         name: downloader
         ports:
@@ -57,4 +54,5 @@ spec:
       schedulerName: default-scheduler
       securityContext: {}
       terminationGracePeriodSeconds: 30
-
+      nodeSelector:
+        parser-node: "true"
