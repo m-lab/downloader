@@ -57,7 +57,7 @@ to give it read/write permissions for GCS when you create the cluster.
 
 So, we create a dedicated node pool with storage-rw permissions. Ultimately, a
 limited permission service account would be preferable. Initially, three nodes
-will be allocated, but the autoscaler will shutdown two after the downloader
+will be allocated, but the autoscaler will shut down two after the downloader
 is deployed.
 
 ```sh
