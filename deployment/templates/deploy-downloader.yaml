@@ -1,4 +1,4 @@
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   annotations:
@@ -35,17 +35,12 @@ spec:
           value: "{{BUCKET_NAME}}"
         - name: PROJECT_NAME
           value: {{PROJECT_NAME}}
-        - name: GOOGLE_APPLICATION_CREDENTIALS
-          value: /var/secrets/google/key.json
         - name: MAXMIND_LICENSE_KEY
           valueFrom:
             secretKeyRef:
               name: downloader-secret
               key: license_key
         image: gcr.io/{{PROJECT_NAME}}/downloader:{{GITHUB_COMMIT}}
-        volumeMounts:
-          - name: google-cloud-key
-            mountPath: /var/secrets/google
         imagePullPolicy: IfNotPresent
         name: downloader
         ports:
@@ -59,4 +54,5 @@ spec:
       schedulerName: default-scheduler
       securityContext: {}
       terminationGracePeriodSeconds: 30
-
+      nodeSelector:
+        downloader-node: "true"

@@ -1,0 +1,54 @@
+timeout: 1800s
+
+options:
+  machineType: 'N1_HIGHCPU_8'
+  env:
+  - PROJECT_ID=$PROJECT_ID
+  - GIT_COMMIT=$COMMIT_SHA
+
+steps:
+# Run tests.
+- name: gcr.io/cloud-builders/docker
+  id: "Build the testing docker container"
+  args: [
+    "build", "-t", "downloader-testing", "-f", "Dockerfile.testing", "."
+  ]
+- name: downloader-testing
+  id: "Run all downloader unit tests"
+  args:
+  - go version
+  - go vet ./...
+  - go get -v -t ./...
+  - go build ./...
+  - go test ./...
+  - go test ./... -race
+  env:
+  - WORKSPACE_LINK=/go/src/github.com/m-lab/downloader
+  - MAXMIND_LICENSE_KEY=$_MAXMIND_LICENSE_KEY
+
+# Build and deploy.
+- name: gcr.io/cloud-builders/docker
+  id: "Build the downloader docker container"
+  args: [
+    "build", "-t", "gcr.io/$PROJECT_ID/downloader:${COMMIT_SHA}", "."
+  ]
+
+- name: gcr.io/cloud-builders/docker
+  id: "Push the docker container to gcr.io"
+  args: [
+    "push", "gcr.io/$PROJECT_ID/downloader:${COMMIT_SHA}"
+  ]
+
+- name: gcr.io/cloud-builders/kubectl
+  id: "Deploy downloader configuration"
+  entrypoint: /bin/bash
+  args: [
+   '-c', '/builder/kubectl.bash version && ./deployment/deploy.sh'
+  ]
+  env:
+  - PROJECT_NAME=$PROJECT_ID
+  - BUCKET_NAME=downloader-$PROJECT_ID
+  - MAXMIND_LICENSE_KEY=$_MAXMIND_LICENSE_KEY
+  # For the kubectl docker image script.
+  - CLOUDSDK_COMPUTE_REGION=$_CLUSTER_REGION
+  - CLOUDSDK_CONTAINER_CLUSTER=data-processing

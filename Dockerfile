@@ -1,4 +1,4 @@
-FROM golang:1.13 as builder
+FROM golang:1.18 as builder
 # Set up the build environment
 ENV CGO_ENABLED 0
 # Copy files to correct gopath
@@ -14,7 +14,7 @@ RUN go install \
 
 
 # Set up the image we will eventually use
-FROM alpine
+FROM alpine:3.15
 # By default, alpine has no root certs.  We need them for authenticating to GCS.
 RUN apk add --no-cache ca-certificates && update-ca-certificates
 
