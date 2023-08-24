@@ -52,6 +52,7 @@ kubectl create secret generic \
 ```
 
 ## Cluster Creation
+
 The default cluster size is enough for the downloader, but you need to be sure
 to give it read/write permissions for GCS when you create the cluster.
 
@@ -60,16 +61,11 @@ limited permission service account would be preferable. Initially, three nodes
 will be allocated, but the autoscaler will shut down two after the downloader
 is deployed.
 
-```sh
-gcloud --project=mlab-sandbox container node-pools create downloader-pool \
-  --cluster=data-processing   --num-nodes=1   --region=us-east1 \
-  --scopes storage-rw \
-  --node-labels=downloader-node=true --enable-autorepair --enable-autoupgrade \
-  --machine-type=n1-standard-2
-```
+The cluster node-pool is managed using Terraform, defined in
+[terraform-support](https://github.com/m-lab/terraform-support).
 
-For prometheus monitoring, you must make an extra node pool, as
-described in the readme of the prometheus-support repository.
+For prometheus monitoring, you must make an extra node pool, also managed by
+terraform.
 
 ## Pub/Sub Topic
 The downloader also expects a pub/sub topic named "downloader-new-files" to
