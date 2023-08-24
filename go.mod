@@ -1,6 +1,6 @@
 module github.com/m-lab/downloader
 
-go 1.18
+go 1.20
 
 require (
 	cloud.google.com/go/storage v1.5.0
