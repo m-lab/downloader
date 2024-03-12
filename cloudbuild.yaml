@@ -25,6 +25,7 @@ steps:
   env:
   - WORKSPACE_LINK=/go/src/github.com/m-lab/downloader
   - MAXMIND_LICENSE_KEY=$_MAXMIND_LICENSE_KEY
+  - MAXMIND_ACCOUNT_ID=$_MAXMIND_ACCOUNT_ID
 
 # Build and deploy.
 - name: gcr.io/cloud-builders/docker
@@ -49,6 +50,7 @@ steps:
   - PROJECT_NAME=$PROJECT_ID
   - BUCKET_NAME=downloader-$PROJECT_ID
   - MAXMIND_LICENSE_KEY=$_MAXMIND_LICENSE_KEY
+  - MAXMIND_ACCOUNT_ID=$_MAXMIND_ACCOUNT_ID
   # For the kubectl docker image script.
   - CLOUDSDK_COMPUTE_REGION=$_CLUSTER_REGION
   - CLOUDSDK_CONTAINER_CLUSTER=$_CLUSTER_NAME
