@@ -36,6 +36,8 @@ type config struct {
 	DedupRegexp   *regexp.Regexp // The regexp to apply to the filename to determine the directory to dedupe in.
 	FixedFilename string         // The saved file could have fixed filename.
 	MaxDuration   time.Duration  // The longest we allow the download process to go on before we consider it failed.
+	BasicAuthUser string         // The HTTP Basic Auth user string
+	BasicAuthPass string         // The HTTP Basic Auth password string
 }
 
 // GenUniformSleepTime generates a random time to sleep (in hours)
@@ -59,12 +61,28 @@ func GenUniformSleepTime(sleepInterval time.Duration, sleepDeviation time.Durati
 func download(ctx context.Context, dc config) errWithPermanence {
 	ctx, cancel := context.WithTimeout(ctx, dc.MaxDuration)
 	defer cancel()
-	// Grab the file from the website
-	resp, err := http.Get(dc.URL)
+
+	// Grab the file from the website.
+	req, err := http.NewRequest(http.MethodGet, dc.URL, nil)
 	if err != nil {
 		metrics.DownloaderErrorCount.With(prometheus.Labels{"source": "Web Get"}).Inc()
 		return errWithPermanence{err, false}
 	}
+
+	req.Close = true
+
+	// If an HTTP Basic Auth user is defined, then add Basic Auth headers to the request.
+	if dc.BasicAuthUser != "" {
+		req.SetBasicAuth(dc.BasicAuthUser, dc.BasicAuthPass)
+	}
+
+	client := http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		metrics.DownloaderErrorCount.With(prometheus.Labels{"source": "Web Get"}).Inc()
+		return errWithPermanence{err, false}
+	}
+
 	// Ensure that the webserver thinks our file request was okay
 	if resp.StatusCode != http.StatusOK {
 		metrics.DownloaderErrorCount.

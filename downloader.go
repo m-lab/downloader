@@ -3,7 +3,6 @@ package main
 import (
 	"flag"
 	"log"
-	"math/rand"
 	"time"
 
 	"github.com/m-lab/go/flagx"
@@ -39,6 +38,7 @@ func main() {
 	bucketName := flag.String("bucket", "", "Specify the bucket name to store the results in.")
 	projectName := flag.String("project", "", "Specify the project name to send the pub/sub in.")
 	maxmindLicenseKey := flag.String("maxmind_license_key", "", "the license key for maxmind downloading.")
+	maxmindAccountID := flag.String("maxmind_account_id", "", "the account ID for maxmind downloading.")
 
 	flag.Parse()
 	flagx.ArgsFromEnv(flag.CommandLine)
@@ -49,15 +49,14 @@ func main() {
 	if *projectName == "" {
 		log.Fatal("NO PROJECT SPECIFIED!!!")
 	}
-	rand.Seed(time.Now().UTC().UnixNano())
 	prometheusx.MustServeMetrics()
-	loopOverURLsForever(mainCtx, *bucketName, *maxmindLicenseKey)
+	loopOverURLsForever(mainCtx, *bucketName, *maxmindLicenseKey, *maxmindAccountID)
 }
 
 // loopOverURLsForever takes a bucketName, pointing to a GCS bucket,
 // and then tries to download the files over and over again until the
 // end of time (waiting an average of 8 hours in between attempts)
-func loopOverURLsForever(ctx context.Context, bucketName string, maxmindLicenseKey string) {
+func loopOverURLsForever(ctx context.Context, bucketName string, maxmindLicenseKey string, maxmindAccountID string) {
 	// TODO: consider migrating to github.com/m-lab/go/memoryless
 	lastDownloadedV4 := 0
 	lastDownloadedV6 := 0
@@ -69,7 +68,7 @@ func loopOverURLsForever(ctx context.Context, bucketName string, maxmindLicenseK
 		}
 		fileStore := file.NewGCSStore(bkt)
 
-		maxmindErr := download.MaxmindFiles(ctx, timestamp, fileStore, maxmindLicenseKey)
+		maxmindErr := download.MaxmindFiles(ctx, timestamp, fileStore, maxmindLicenseKey, maxmindAccountID)
 		if maxmindErr != nil {
 			log.Println(maxmindErr)
 		}

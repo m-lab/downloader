@@ -10,6 +10,7 @@ MAXMIND_LICENSE_KEY=${MAXMIND_LICENSE_KEY:?Please specify the \$MAXMIND_LICENSE_
 kubectl create \
   secret generic downloader-secret \
     --from-literal=license_key=${MAXMIND_LICENSE_KEY} \
+    --from-literal=account_id=${MAXMIND_ACCOUNT_ID} \
     --dry-run -o json | kubectl apply -f -
 
 find ./deployment/templates/ -type f -a -print -a \
