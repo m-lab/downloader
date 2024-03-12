@@ -18,28 +18,28 @@ var maxmindDownloadInfo = []struct {
 	current  string
 }{
 	{
-		url:      "https://download.maxmind.com/app/geoip_download?edition_id=GeoLite2-ASN&suffix=tar.gz&license_key=",
+		url:      "https://download.maxmind.com/geoip/databases/GeoLite2-ASN/download?suffix=tar.gz",
 		filename: "GeoLite2-ASN.tar.gz",
 	},
 	{
-		url:      "https://download.maxmind.com/app/geoip_download?edition_id=GeoLite2-ASN-CSV&suffix=zip&license_key=",
+		url:      "https://download.maxmind.com/geoip/databases/GeoLite2-ASN-CSV/download?suffix=zip",
 		filename: "GeoLite2-ASN-CSV.zip",
 	},
 	{
-		url:      "https://download.maxmind.com/app/geoip_download?edition_id=GeoLite2-City&suffix=tar.gz&license_key=",
+		url:      "https://download.maxmind.com/geoip/databases/GeoLite2-City/download?suffix=tar.gz",
 		filename: "GeoLite2-City.tar.gz",
 		current:  "Maxmind/current/GeoLite2-City.tar.gz",
 	},
 	{
-		url:      "https://download.maxmind.com/app/geoip_download?edition_id=GeoLite2-City-CSV&suffix=zip&license_key=",
+		url:      "https://download.maxmind.com/geoip/databases/GeoLite2-City-CSV/download?suffix=zip",
 		filename: "GeoLite2-City-CSV.zip",
 	},
 	{
-		url:      "https://download.maxmind.com/app/geoip_download?edition_id=GeoLite2-Country&suffix=tar.gz&license_key=",
+		url:      "https://download.maxmind.com/geoip/databases/GeoLite2-Country/download?suffix=tar.gz",
 		filename: "GeoLite2-Country.tar.gz",
 	},
 	{
-		url:      "https://download.maxmind.com/app/geoip_download?edition_id=GeoLite2-Country-CSV&suffix=zip&license_key=",
+		url:      "https://download.maxmind.com/geoip/databases/GeoLite2-Country-CSV/download?suffix=zip",
 		filename: "GeoLite2-Country-CSV.zip",
 	},
 }
@@ -49,11 +49,11 @@ var maxmindDownloadInfo = []struct {
 // interface where the user wants the files stored. It then downloads the files,
 // stores them, and returns and error on failure or nil on success. Guaranteed
 // to not introduce duplicates.
-func MaxmindFiles(ctx context.Context, timestamp string, store file.Store, maxmindLicenseKey string) error {
+func MaxmindFiles(ctx context.Context, timestamp string, store file.Store, maxmindLicenseKey string, maxmindAccountID string) error {
 	var lastErr error
 	for _, info := range maxmindDownloadInfo {
 		dc := config{
-			URL:           info.url + maxmindLicenseKey,
+			URL:           info.url,
 			Store:         store,
 			PathPrefix:    "Maxmind/" + timestamp,
 			CurrentName:   info.current,
@@ -61,6 +61,8 @@ func MaxmindFiles(ctx context.Context, timestamp string, store file.Store, maxmi
 			FixedFilename: info.filename,
 			DedupRegexp:   maxmindFilenameToDedupRegexp,
 			MaxDuration:   *downloadTimeout,
+			BasicAuthUser: maxmindAccountID,
+			BasicAuthPass: maxmindLicenseKey,
 		}
 		if err := runFunctionWithRetry(ctx, download, dc, *waitAfterFirstDownloadFailure, *maximumWaitBetweenDownloadAttempts); err != nil {
 			lastErr = err

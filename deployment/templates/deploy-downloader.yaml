@@ -40,6 +40,11 @@ spec:
             secretKeyRef:
               name: downloader-secret
               key: license_key
+        - name: MAXMIND_ACCOUNT_ID
+          valueFrom:
+            secretKeyRef:
+              name: downloader-secret
+              key: account_id
         image: gcr.io/{{PROJECT_NAME}}/downloader:{{GITHUB_COMMIT}}
         imagePullPolicy: IfNotPresent
         name: downloader
