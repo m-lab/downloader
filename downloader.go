@@ -19,7 +19,7 @@ import (
 
 // The average time (in hours) to wait in between attempts to download
 // files
-const averageHoursBetweenUpdateChecks = 8 * time.Hour
+const averageHoursBetweenUpdateChecks = 24 * time.Hour
 
 // The window of time (in hours) to allow a random time to be chosen
 // from.
