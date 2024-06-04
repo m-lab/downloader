@@ -18,29 +18,9 @@ var maxmindDownloadInfo = []struct {
 	current  string
 }{
 	{
-		url:      "https://download.maxmind.com/geoip/databases/GeoLite2-ASN/download?suffix=tar.gz",
-		filename: "GeoLite2-ASN.tar.gz",
-	},
-	{
-		url:      "https://download.maxmind.com/geoip/databases/GeoLite2-ASN-CSV/download?suffix=zip",
-		filename: "GeoLite2-ASN-CSV.zip",
-	},
-	{
 		url:      "https://download.maxmind.com/geoip/databases/GeoLite2-City/download?suffix=tar.gz",
 		filename: "GeoLite2-City.tar.gz",
 		current:  "Maxmind/current/GeoLite2-City.tar.gz",
-	},
-	{
-		url:      "https://download.maxmind.com/geoip/databases/GeoLite2-City-CSV/download?suffix=zip",
-		filename: "GeoLite2-City-CSV.zip",
-	},
-	{
-		url:      "https://download.maxmind.com/geoip/databases/GeoLite2-Country/download?suffix=tar.gz",
-		filename: "GeoLite2-Country.tar.gz",
-	},
-	{
-		url:      "https://download.maxmind.com/geoip/databases/GeoLite2-Country-CSV/download?suffix=zip",
-		filename: "GeoLite2-Country-CSV.zip",
 	},
 }
 
