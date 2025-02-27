@@ -31,13 +31,13 @@ steps:
 - name: gcr.io/cloud-builders/docker
   id: "Build the downloader docker container"
   args: [
-    "build", "-t", "gcr.io/$PROJECT_ID/downloader:${COMMIT_SHA}", "."
+    "build", "-t", "us-east1-docker.pkg.dev/$PROJECT_ID/m-lab/downloader:${COMMIT_SHA}", "."
   ]
 
 - name: gcr.io/cloud-builders/docker
-  id: "Push the docker container to gcr.io"
+  id: "Push the docker container to Artifact Registry"
   args: [
-    "push", "gcr.io/$PROJECT_ID/downloader:${COMMIT_SHA}"
+    "push", "us-east1-docker.pkg.dev/$PROJECT_ID/m-lab/downloader:${COMMIT_SHA}"
   ]
 
 - name: gcr.io/cloud-builders/kubectl

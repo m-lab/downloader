@@ -45,7 +45,7 @@ spec:
             secretKeyRef:
               name: downloader-secret
               key: account_id
-        image: gcr.io/{{PROJECT_NAME}}/downloader:{{GITHUB_COMMIT}}
+        image: us-east1-docker.pkg.dev/{{PROJECT_NAME}}/m-lab/downloader:{{GITHUB_COMMIT}}
         imagePullPolicy: IfNotPresent
         name: downloader
         ports:
